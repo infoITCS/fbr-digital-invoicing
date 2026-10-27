@@ -1,3 +1,5 @@
+const path = require('path');
+const fs = require('fs');
 const express = require('express');
 const cors = require('cors');
 const { env } = require('./config/env');
@@ -9,6 +11,9 @@ const { errorHandler } = require('./middleware/errorHandler');
 
 function createApp() {
   const app = express();
+
+  const serveClient =
+    String(process.env.SERVE_CLIENT || '').toLowerCase() === 'true';
 
   app.use(
     cors({
@@ -22,6 +27,20 @@ function createApp() {
   app.use('/api/auth', authRouter);
   // Invoice APIs require Microsoft tenant sign-in
   app.use('/api/invoices', requireAuth, invoicesRouter);
+
+  // Production / Plesk: same Node process serves API + built React SPA
+  if (serveClient) {
+    const clientDist = path.resolve(__dirname, '../../client/dist');
+    if (fs.existsSync(clientDist)) {
+      app.use(express.static(clientDist));
+      app.get('*', (req, res, next) => {
+        if (req.path.startsWith('/api')) return next();
+        res.sendFile(path.join(clientDist, 'index.html'), (err) => {
+          if (err) next(err);
+        });
+      });
+    }
+  }
 
   app.use(errorHandler);
   return app;

@@ -87,11 +87,46 @@ Tests use `AUTH_DISABLED=true` and mocked FBR — they never call the real gatew
 
 See [`server/docs/SN005-EXTRATAX.md`](server/docs/SN005-EXTRATAX.md).
 
-## Plesk
+## Plesk (API + UI in one Node app)
 
-- MongoDB Atlas for `MONGODB_URI`
-- Node app root: `server/` → `src/index.js`
-- Build client and host `client/dist`
-- Set `CLIENT_ORIGIN` to the live HTTPS origin
-- Add the same HTTPS origin as an SPA redirect URI in Entra ID
-- Keep sandbox FBR URLs until production is authorized
+Git deploys the whole repo into `httpdocs`. One process (`start.js`) runs the API and serves the built React app from `client/dist`.
+
+### Git dialog (Create repository)
+
+| Setting | Recommendation |
+| --- | --- |
+| Remote repository URL | `https://github.com/infoITCS/fbr-digital-invoicing.git` ✓ |
+| Deployment mode | Automatic ✓ |
+| Deployment directory | `/httpdocs` ✓ |
+| Enable additional deploy actions | **Turn this ON** and paste the commands below |
+
+Post-deploy actions (copy into Plesk):
+
+```bash
+npm install --prefix server --omit=dev
+npm install --prefix client
+npm run build --prefix client
+```
+
+(Or use `plesk-post-deploy.sh` as a reference.)
+
+### Node.js in Plesk
+
+1. Domain → **Node.js** → Enable
+2. **Application root**: `/httpdocs` (same as Git deploy folder)
+3. **Application startup file**: `start.js`
+4. **Application mode**: `production`
+5. Install Node **18+**
+6. Create **`/httpdocs/server/.env`** on the server (never commit secrets) with MongoDB, FBR token, Azure IDs, and:
+
+```env
+CLIENT_ORIGIN=https://your-domain.com
+PORT=3000
+```
+
+(Use the port Plesk assigns if it sets one.)
+
+7. Restart the Node app after deploy / env changes
+8. In Entra ID, add SPA redirect URI: `https://your-domain.com`
+
+MongoDB is **not** on Plesk — use Atlas (`MONGODB_URI`).

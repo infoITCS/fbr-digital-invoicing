@@ -63,7 +63,11 @@ const env = {
     return process.env.MONGODB_URI || '';
   },
   get clientOrigin() {
+    // On Plesk, set this to your public HTTPS origin (same host as the Node app)
     return process.env.CLIENT_ORIGIN || 'http://localhost:5173';
+  },
+  get serveClient() {
+    return String(process.env.SERVE_CLIENT || '').toLowerCase() === 'true';
   },
   get fbrEnvironment() {
     return (process.env.FBR_ENVIRONMENT || 'sandbox').toLowerCase();

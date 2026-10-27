@@ -1,0 +1,18 @@
+{
+  "name": "itcs-fbr-digital-invoicing",
+  "version": "1.0.0",
+  "private": true,
+  "description": "ITCS FBR Digital Invoicing — API + React UI (Plesk-ready)",
+  "main": "start.js",
+  "scripts": {
+    "install:all": "npm install --prefix server && npm install --prefix client",
+    "build": "npm run build --prefix client",
+    "start": "node start.js",
+    "dev": "node start.js",
+    "dev:split": "npm run dev --prefix server",
+    "test": "npm test --prefix server"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
