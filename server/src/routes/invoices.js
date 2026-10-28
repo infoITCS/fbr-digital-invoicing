@@ -54,7 +54,14 @@ function saveDraftBody(req) {
 function rejectIfNotEditable(invoice, res) {
   if (!EDITABLE_STATUSES.has(invoice.status)) {
     res.status(409).json({
-      message: `Cannot modify invoice in status "${invoice.status}".`,
+      message:
+        invoice.status === STATUS.SUBMITTED
+          ? 'This invoice was already submitted to FBR and cannot be changed. Start a new invoice instead.'
+          : invoice.status === STATUS.SUBMISSION_UNKNOWN
+            ? 'This invoice has an unclear submit result and is locked. Confirm with FBR before any retry — do not edit or resubmit yet.'
+            : invoice.status === STATUS.SUBMISSION_PENDING
+              ? 'A submit is already in progress. Please wait — do not change or resubmit this invoice yet.'
+              : `This invoice cannot be edited right now (status: ${invoice.status}).`,
       invoice,
     });
     return true;
@@ -221,7 +228,11 @@ router.post('/', async (req, res, next) => {
       const fields = saveDraftBody(req);
       const errors = validateInvoiceData({ ...existing.toObject(), ...fields });
       if (errors.length) {
-        return res.status(400).json({ message: 'Validation failed', errors });
+        return res.status(400).json({
+          message:
+            'Some required invoice details are missing or incorrect. Check the form and try saving again.',
+          errors,
+        });
       }
 
       applyFields(existing, fields);
@@ -234,13 +245,20 @@ router.post('/', async (req, res, next) => {
         status: existing.status,
       });
 
-      return res.json({ message: 'Draft saved', invoice: existing });
+      return res.json({
+        message: 'Draft saved. Next step: Validate with FBR.',
+        invoice: existing,
+      });
     }
 
     const fields = saveDraftBody(req);
     const errors = validateInvoiceData(fields);
     if (errors.length) {
-      return res.status(400).json({ message: 'Validation failed', errors });
+      return res.status(400).json({
+        message:
+          'Some required invoice details are missing or incorrect. Check the form and try saving again.',
+        errors,
+      });
     }
 
     const invoice = new Invoice({
@@ -255,7 +273,10 @@ router.post('/', async (req, res, next) => {
       status: invoice.status,
     });
 
-    res.status(201).json({ message: 'Draft saved', invoice });
+    res.status(201).json({
+      message: 'Draft saved. Next step: Validate with FBR.',
+      invoice,
+    });
   } catch (err) {
     next(err);
   }
@@ -265,12 +286,18 @@ router.post('/', async (req, res, next) => {
 router.put('/:id', async (req, res, next) => {
   try {
     if (!isValidObjectId(req.params.id)) {
-      return res.status(400).json({ message: 'Invalid invoice id' });
+      return res.status(400).json({
+        message:
+          'That invoice link is invalid. Save a new draft from the form.',
+      });
     }
 
     const invoice = await Invoice.findById(req.params.id);
     if (!invoice) {
-      return res.status(404).json({ message: 'Invoice not found' });
+      return res.status(404).json({
+        message:
+          'Invoice not found. Click “Save Draft” to create a new draft, then continue.',
+      });
     }
     if (rejectIfNotEditable(invoice, res)) return;
 
@@ -278,7 +305,11 @@ router.put('/:id', async (req, res, next) => {
     const merged = { ...invoice.toObject(), ...fields };
     const errors = validateInvoiceData(merged);
     if (errors.length) {
-      return res.status(400).json({ message: 'Validation failed', errors });
+      return res.status(400).json({
+        message:
+          'Some required invoice details are missing or incorrect. Check the form and try saving again.',
+        errors,
+      });
     }
 
     applyFields(invoice, fields);
@@ -292,7 +323,10 @@ router.put('/:id', async (req, res, next) => {
       status: invoice.status,
     });
 
-    res.json({ message: 'Draft updated', invoice });
+    res.json({
+      message: 'Draft saved. Next step: Validate with FBR.',
+      invoice,
+    });
   } catch (err) {
     next(err);
   }
@@ -302,14 +336,18 @@ router.put('/:id', async (req, res, next) => {
 router.post('/:id/validate', async (req, res, next) => {
   try {
     if (!isValidObjectId(req.params.id)) {
-      return res.status(400).json({ message: 'Invalid invoice id' });
+      return res.status(400).json({
+        message:
+          'That invoice link is invalid. Save a draft first, then validate.',
+      });
     }
 
     const invoice = await Invoice.findById(req.params.id);
     if (!invoice) {
-      return res
-        .status(404)
-        .json({ message: 'Invoice not found. Save a draft first.' });
+      return res.status(404).json({
+        message:
+          'Invoice not found. Click “Save Draft” first, then “Validate with FBR”.',
+      });
     }
 
     if (
@@ -318,7 +356,12 @@ router.post('/:id/validate', async (req, res, next) => {
       invoice.status === STATUS.SUBMISSION_UNKNOWN
     ) {
       return res.status(409).json({
-        message: `Cannot validate invoice in status "${invoice.status}".`,
+        message:
+          invoice.status === STATUS.SUBMITTED
+            ? 'This invoice was already submitted to FBR. You cannot validate it again — start a new invoice instead.'
+            : invoice.status === STATUS.SUBMISSION_UNKNOWN
+              ? 'A previous submit did not get a clear answer from FBR. Do not validate or submit again until it is confirmed.'
+              : 'A submit is already in progress. Please wait — do not validate again yet.',
         invoice,
       });
     }
@@ -328,7 +371,11 @@ router.post('/:id/validate', async (req, res, next) => {
       applyFields(invoice, fields);
       const errors = validateInvoiceData(invoice.toObject());
       if (errors.length) {
-        return res.status(400).json({ message: 'Validation failed', errors });
+        return res.status(400).json({
+          message:
+            'Some required invoice details are missing or incorrect. Fix the form, then validate again.',
+          errors,
+        });
       }
       await invoice.save();
     }
@@ -364,7 +411,8 @@ router.post('/:id/validate', async (req, res, next) => {
       } else {
         invoice.status = STATUS.VALIDATION_FAILED;
         invoice.lastError = {
-          message: 'Unexpected FBR validation response shape',
+          message:
+            'FBR sent an unexpected reply, so we could not confirm this invoice. Try Validate again. If it keeps happening, contact your admin.',
           code: 'FBR_UNEXPECTED_RESPONSE',
           httpStatus: result.httpStatus,
         };
@@ -375,8 +423,8 @@ router.post('/:id/validate', async (req, res, next) => {
       const success = interpretation.outcome === 'valid';
       return res.status(success ? 200 : 422).json({
         message: success
-          ? 'FBR validation succeeded (sandbox)'
-          : 'FBR validation failed — see fbrResponse for details',
+          ? 'FBR accepted this invoice (sandbox check passed). Next step: Submit to FBR.'
+          : 'FBR did not accept this invoice. Read the FBR messages, fix the form, then validate again.',
         invoice: toPublicInvoiceDetail(invoice),
         fbrHttpStatus: result.httpStatus,
         fbrResponse: result.data,
@@ -423,20 +471,24 @@ router.post('/:id/validate', async (req, res, next) => {
 router.post('/:id/submit', async (req, res, next) => {
   try {
     if (!isValidObjectId(req.params.id)) {
-      return res.status(400).json({ message: 'Invalid invoice id' });
+      return res.status(400).json({
+        message:
+          'That invoice link is invalid. Save, validate, then submit again.',
+      });
     }
 
     const invoice = await Invoice.findById(req.params.id);
     if (!invoice) {
-      return res
-        .status(404)
-        .json({ message: 'Invoice not found. Save a draft first.' });
+      return res.status(404).json({
+        message:
+          'Invoice not found. Click “Save Draft”, then “Validate with FBR”, then “Submit to FBR”.',
+      });
     }
 
     if (invoice.status === STATUS.SUBMITTED) {
       return res.status(409).json({
         message:
-          'Invoice already submitted successfully. Duplicate submission blocked.',
+          'This invoice was already sent to FBR successfully. You do not need to submit it again. Open the Dashboard to view it, or start a new invoice.',
         invoice,
       });
     }
@@ -444,7 +496,7 @@ router.post('/:id/submit', async (req, res, next) => {
     if (invoice.status === STATUS.SUBMISSION_UNKNOWN) {
       return res.status(409).json({
         message:
-          'Previous submission outcome is submission_unknown. Inspect saved FBR exchange and reconcile before retrying. Automatic retry is disabled.',
+          'The last submit did not get a clear answer from FBR. Do not submit again. Check the Dashboard and confirm with FBR before any retry.',
         invoice,
       });
     }
@@ -454,7 +506,8 @@ router.post('/:id/submit', async (req, res, next) => {
       invoice.submissionLocked
     ) {
       return res.status(409).json({
-        message: 'Submission already in progress. Duplicate submission blocked.',
+        message:
+          'A submit is already in progress for this invoice. Please wait — do not click Submit again.',
         invoice,
       });
     }
@@ -462,7 +515,7 @@ router.post('/:id/submit', async (req, res, next) => {
     if (invoice.status !== STATUS.VALIDATED) {
       return res.status(409).json({
         message:
-          'Invoice must pass FBR validation (status: validated) before submit. Save, validate, then submit.',
+          'This invoice must pass “Validate with FBR” first. Click Validate, wait for success, then click Submit.',
         invoice,
       });
     }
@@ -475,7 +528,7 @@ router.post('/:id/submit', async (req, res, next) => {
       await invoice.save();
       return res.status(409).json({
         message:
-          'Invoice fields were updated. Status reset to draft — validate with FBR again before submit.',
+          'The invoice details changed, so it must be validated again. Click “Validate with FBR”, then Submit.',
         invoice,
       });
     }
@@ -530,7 +583,9 @@ router.post('/:id/submit', async (req, res, next) => {
         await invoice.save();
 
         return res.json({
-          message: 'Invoice submitted successfully to FBR sandbox',
+          message: invoice.fbrInvoiceNumber
+            ? `Invoice submitted successfully to FBR. FBR invoice number: ${invoice.fbrInvoiceNumber}.`
+            : 'Invoice submitted successfully to FBR.',
           invoice: toPublicInvoiceDetail(invoice),
           fbrHttpStatus: result.httpStatus,
           fbrResponse: result.data,
@@ -542,7 +597,8 @@ router.post('/:id/submit', async (req, res, next) => {
       invoice.status = STATUS.VALIDATION_FAILED;
       invoice.submissionLocked = false;
       invoice.lastError = {
-        message: 'FBR rejected the submission',
+        message:
+          'FBR rejected this invoice. It was not submitted. Fix the issues shown, validate again, then submit.',
         code: 'FBR_SUBMISSION_REJECTED',
         summary: interpretation.summary,
       };
@@ -550,7 +606,7 @@ router.post('/:id/submit', async (req, res, next) => {
 
       return res.status(422).json({
         message:
-          'FBR rejected the submission — invoice was NOT marked as submitted',
+          'FBR rejected this invoice. It was not submitted. Read the FBR messages, fix the form, validate again, then submit.',
         invoice: toPublicInvoiceDetail(invoice),
         fbrHttpStatus: result.httpStatus,
         fbrResponse: result.data,

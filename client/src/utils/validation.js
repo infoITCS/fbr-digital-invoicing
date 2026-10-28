@@ -1,47 +1,73 @@
 export function validateForm(form) {
   const errors = {};
 
-  if (!form.invoiceDate) errors.invoiceDate = 'Invoice date is required';
-  if (!form.scenarioId) errors.scenarioId = 'Scenario ID is required';
-  if (!form.sellerNTNCNIC?.trim()) errors.sellerNTNCNIC = 'Seller NTN/CNIC is required';
-  if (!form.sellerBusinessName?.trim())
-    errors.sellerBusinessName = 'Seller business name is required';
-  if (!form.sellerProvince) errors.sellerProvince = 'Seller province is required';
-  if (!form.sellerAddress?.trim()) errors.sellerAddress = 'Seller address is required';
-  if (!form.buyerBusinessName?.trim())
-    errors.buyerBusinessName = 'Buyer business name is required';
-  if (!form.buyerProvince) errors.buyerProvince = 'Buyer province is required';
-  if (!form.buyerAddress?.trim()) errors.buyerAddress = 'Buyer address is required';
-  if (!form.buyerRegistrationType)
-    errors.buyerRegistrationType = 'Buyer registration type is required';
+  if (!form.invoiceDate) {
+    errors.invoiceDate = 'Please choose the invoice date.';
+  }
+  if (!form.scenarioId) {
+    errors.scenarioId = 'Please select a scenario from the list.';
+  }
+  if (!form.sellerNTNCNIC?.trim()) {
+    errors.sellerNTNCNIC = 'Seller NTN or CNIC is missing.';
+  }
+  if (!form.sellerBusinessName?.trim()) {
+    errors.sellerBusinessName = 'Seller business name is missing.';
+  }
+  if (!form.sellerProvince) {
+    errors.sellerProvince = 'Please select the seller province.';
+  }
+  if (!form.sellerAddress?.trim()) {
+    errors.sellerAddress = 'Seller address is missing.';
+  }
+  if (!form.buyerBusinessName?.trim()) {
+    errors.buyerBusinessName = 'Please enter the buyer’s business name.';
+  }
+  if (!form.buyerProvince) {
+    errors.buyerProvince = 'Please select the buyer province.';
+  }
+  if (!form.buyerAddress?.trim()) {
+    errors.buyerAddress = 'Please enter the buyer address.';
+  }
+  if (!form.buyerRegistrationType) {
+    errors.buyerRegistrationType = 'Please choose Registered or Unregistered.';
+  }
 
   if (form.buyerRegistrationType === 'Registered' && !form.buyerNTNCNIC?.trim()) {
-    errors.buyerNTNCNIC = 'Buyer NTN/CNIC is required for registered buyers';
+    errors.buyerNTNCNIC =
+      'Registered buyers need an NTN or CNIC. Enter it, or switch to Unregistered.';
   }
 
   if (!form.items?.length) {
-    errors.items = 'At least one invoice item is required';
+    errors.items = 'Add at least one product or service line.';
   }
 
-  const itemErrors = (form.items || []).map((item, index) => {
-    const e = {};
-    if (!item.hsCode?.trim()) e.hsCode = 'Required';
-    if (!item.productDescription?.trim()) e.productDescription = 'Required';
-    if (!item.rate?.trim()) e.rate = 'Required';
-    if (!item.uoM?.trim()) e.uoM = 'Required';
-    if (item.quantity === '' || item.quantity == null || Number(item.quantity) < 0) {
-      e.quantity = 'Invalid';
-    }
-    if (
-      item.valueSalesExcludingST === '' ||
-      item.valueSalesExcludingST == null ||
-      Number.isNaN(Number(item.valueSalesExcludingST))
-    ) {
-      e.valueSalesExcludingST = 'Invalid';
-    }
-    if (!item.saleType?.trim()) e.saleType = 'Required';
-    return Object.keys(e).length ? { index, ...e } : null;
-  }).filter(Boolean);
+  const itemErrors = (form.items || [])
+    .map((item, index) => {
+      const e = {};
+      if (!item.hsCode?.trim()) e.hsCode = 'Enter the HS code.';
+      if (!item.productDescription?.trim()) {
+        e.productDescription = 'Enter a short product/service description.';
+      }
+      if (!item.rate?.trim()) e.rate = 'Select the tax rate.';
+      if (!item.uoM?.trim()) e.uoM = 'Select the unit of measure.';
+      if (
+        item.quantity === '' ||
+        item.quantity == null ||
+        Number(item.quantity) < 0
+      ) {
+        e.quantity = 'Enter a valid quantity (0 or more).';
+      }
+      if (
+        item.valueSalesExcludingST === '' ||
+        item.valueSalesExcludingST == null ||
+        Number.isNaN(Number(item.valueSalesExcludingST))
+      ) {
+        e.valueSalesExcludingST = 'Enter the sale value (before sales tax).';
+      }
+      if (!item.saleType?.trim()) e.saleType = 'Select the sale type.';
+      return Object.keys(e).length ? { index, ...e } : null;
+    })
+    .filter(Boolean);
 
   if (itemErrors.length) {
     errors.itemErrors = itemErrors;
@@ -88,8 +114,7 @@ export function calcInvoiceTotals(items = []) {
         item.extraTax === '' || item.extraTax == null ? 0 : Number(item.extraTax) || 0;
       acc.fedPayable += Number(item.fedPayable) || 0;
       acc.discount += Number(item.discount) || 0;
-      acc.totalValues +=
-        Number(item.totalValues) || calcItemTotal(item);
+      acc.totalValues += Number(item.totalValues) || calcItemTotal(item);
       return acc;
     },
     {

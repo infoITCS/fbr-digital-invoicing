@@ -41,9 +41,32 @@ function safeLog(operation, meta = {}) {
   });
 }
 
+function laymanFbrMessage(operation, kind, httpStatus) {
+  const isSubmit = operation === 'submit';
+  if (kind === 'timeout') {
+    return isSubmit
+      ? 'FBR did not reply in time after we sent the invoice. It may or may not have been received. Do not submit again until this is checked with FBR.'
+      : 'FBR did not reply in time while checking this invoice. Wait a moment and try Validate again.';
+  }
+  if (kind === 'auth') {
+    return 'FBR rejected our login token. Ask your admin to check the FBR sandbox token on the server. This invoice was not accepted.';
+  }
+  if (kind === 'http') {
+    return isSubmit
+      ? `FBR returned an error (HTTP ${httpStatus}) and did not accept this invoice. See the FBR reply for details.`
+      : `FBR returned an error (HTTP ${httpStatus}) while checking this invoice. See the FBR reply, fix the form if needed, then validate again.`;
+  }
+  if (kind === 'no_response') {
+    return isSubmit
+      ? 'We lost contact with FBR while submitting. The invoice may or may not have been received. Do not submit again until this is checked with FBR.'
+      : 'Could not reach FBR. Check your internet connection, then try Validate again.';
+  }
+  return `FBR ${operation} failed. Please try again or contact your admin.`;
+}
+
 function normalizeAxiosError(error, operation) {
   if (error.code === 'ECONNABORTED' || /timeout/i.test(error.message || '')) {
-    const err = new Error(`FBR ${operation} request timed out`);
+    const err = new Error(laymanFbrMessage(operation, 'timeout'));
     err.code = 'FBR_TIMEOUT';
     err.status = 504;
     err.uncertain = operation === 'submit';
@@ -55,11 +78,11 @@ function normalizeAxiosError(error, operation) {
 
   if (error.response) {
     const httpStatus = error.response.status;
-    const err = new Error(`FBR ${operation} failed with HTTP ${httpStatus}`);
-    err.code =
-      httpStatus === 401 || httpStatus === 403
-        ? 'FBR_AUTH_ERROR'
-        : 'FBR_HTTP_ERROR';
+    const auth = httpStatus === 401 || httpStatus === 403;
+    const err = new Error(
+      laymanFbrMessage(operation, auth ? 'auth' : 'http', httpStatus)
+    );
+    err.code = auth ? 'FBR_AUTH_ERROR' : 'FBR_HTTP_ERROR';
     err.status = httpStatus >= 400 && httpStatus < 600 ? httpStatus : 502;
     err.httpStatus = httpStatus;
     err.fbrBody = error.response.data;
@@ -69,7 +92,7 @@ function normalizeAxiosError(error, operation) {
   }
 
   if (error.request) {
-    const err = new Error(`FBR ${operation} — no response received from FBR`);
+    const err = new Error(laymanFbrMessage(operation, 'no_response'));
     err.code = 'FBR_NO_RESPONSE';
     err.status = 502;
     err.uncertain = operation === 'submit';

@@ -94,16 +94,35 @@ export function getErrorPayload(error) {
       fbrHttpStatus: error.response.data.fbrHttpStatus ?? null,
       interpretation: error.response.data.interpretation || null,
       errors: error.response.data.errors || null,
+      httpStatus: error.response.status ?? null,
     };
   }
+  const network =
+    !error.response &&
+    (error.code === 'ERR_NETWORK' ||
+      error.message === 'Network Error' ||
+      /timeout/i.test(error.message || ''));
   return {
-    message: error.message || 'Network error',
-    error: null,
+    message: network
+      ? error.code === 'ECONNABORTED' || /timeout/i.test(error.message || '')
+        ? 'The request timed out. Check your connection and try again.'
+        : 'Could not connect to the server. Check your internet connection and try again.'
+      : error.message || 'Something went wrong. Please try again.',
+    error: network
+      ? {
+          code:
+            error.code === 'ECONNABORTED' || /timeout/i.test(error.message || '')
+              ? 'FBR_TIMEOUT'
+              : 'FBR_NO_RESPONSE',
+          message: error.message,
+        }
+      : null,
     invoice: null,
     fbrResponse: null,
     fbrHttpStatus: null,
     interpretation: null,
     errors: null,
+    httpStatus: null,
   };
 }
 

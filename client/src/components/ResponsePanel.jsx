@@ -15,6 +15,25 @@ function statusBadgeClass(status) {
   }
 }
 
+function statusLabel(status) {
+  switch (status) {
+    case 'draft':
+      return 'Draft (not sent yet)';
+    case 'validated':
+      return 'Validated — ready to submit';
+    case 'validation_failed':
+      return 'FBR rejected — fix and try again';
+    case 'submission_pending':
+      return 'Submitting… please wait';
+    case 'submitted':
+      return 'Submitted to FBR';
+    case 'submission_unknown':
+      return 'Unclear — do not resubmit';
+    default:
+      return status || '';
+  }
+}
+
 function extractFbrMessages(fbrResponse) {
   if (!fbrResponse) return [];
   const messages = [];
@@ -23,29 +42,36 @@ function extractFbrMessages(fbrResponse) {
   if (vr?.error) {
     messages.push({
       level: 'error',
-      text: `${vr.errorCode ? `[${vr.errorCode}] ` : ''}${vr.error}`,
+      text: `FBR problem${vr.errorCode ? ` (${vr.errorCode})` : ''}: ${vr.error}`,
     });
   }
 
   if (vr?.status) {
+    const ok = String(vr.status).toLowerCase() === 'valid';
     messages.push({
-      level: String(vr.status).toLowerCase() === 'valid' ? 'ok' : 'info',
-      text: `FBR status: ${vr.status}${vr.statusCode ? ` (${vr.statusCode})` : ''}`,
+      level: ok ? 'ok' : 'info',
+      text: ok
+        ? 'FBR says this invoice looks valid.'
+        : `FBR status: ${vr.status}${vr.statusCode ? ` (code ${vr.statusCode})` : ''}`,
     });
   }
 
   const items = vr?.invoiceStatuses;
   if (Array.isArray(items)) {
     items.forEach((item) => {
+      const line = item.itemSNo || '?';
       if (item.error) {
         messages.push({
           level: 'error',
-          text: `Item ${item.itemSNo || '?'}: ${item.errorCode ? `[${item.errorCode}] ` : ''}${item.error}`,
+          text: `Line ${line} rejected${item.errorCode ? ` (${item.errorCode})` : ''}: ${item.error}`,
         });
       } else if (item.status) {
+        const ok = String(item.status).toLowerCase() === 'valid';
         messages.push({
-          level: String(item.status).toLowerCase() === 'valid' ? 'ok' : 'info',
-          text: `Item ${item.itemSNo || '?'}: ${item.status}${item.invoiceNo ? ` — ${item.invoiceNo}` : ''}`,
+          level: ok ? 'ok' : 'info',
+          text: ok
+            ? `Line ${line}: accepted${item.invoiceNo ? ` — FBR no. ${item.invoiceNo}` : ''}`
+            : `Line ${line}: ${item.status}${item.invoiceNo ? ` — ${item.invoiceNo}` : ''}`,
         });
       }
     });
@@ -89,8 +115,9 @@ export default function ResponsePanel({
           {status ? (
             <span
               className={`inline-flex rounded border px-2 py-0.5 text-xs font-semibold ${statusBadgeClass(status)}`}
+              title={status}
             >
-              {status}
+              {statusLabel(status)}
             </span>
           ) : null}
           {fbrHttpStatus != null ? (
@@ -116,13 +143,12 @@ export default function ResponsePanel({
 
         {uncertain ? (
           <div className="space-y-2 rounded border border-orange-300 bg-orange-50 px-3 py-2 text-orange-900">
-            <p className="font-semibold">submission_unknown</p>
+            <p className="font-semibold">Unclear result — do not submit again</p>
             <p>
-              The submit request may have reached FBR, but no reliable response
-              was received (timeout / connection loss). Automatic retry is
-              disabled. Inspect the raw exchange below, check FBR sandbox
-              facilities with your sandbox credentials, then reconcile before
-              any manual retry.
+              We sent the invoice, but FBR did not give a clear reply (timeout
+              or connection problem). It may or may not have been received. Do
+              not click Submit again. Check the Dashboard, or ask your admin to
+              confirm in the FBR sandbox, before any retry.
             </p>
           </div>
         ) : null}
@@ -130,7 +156,7 @@ export default function ResponsePanel({
         {fbrMessages.length || error?.fbrBody ? (
           <div className="space-y-1">
             <p className="text-xs font-semibold uppercase text-slate-500">
-              FBR messages (actual)
+              What FBR said
             </p>
             {fbrMessages.length === 0 && error?.message ? (
               <p className="rounded border border-red-200 bg-red-50 px-3 py-2 text-red-800">

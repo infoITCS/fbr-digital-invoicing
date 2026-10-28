@@ -22,6 +22,11 @@ import {
   hasErrors,
   validateForm,
 } from './utils/validation';
+import {
+  MSG,
+  humanizeApiError,
+  summarizeFormErrors,
+} from './utils/userMessages';
 
 const LOCKED_STATUSES = new Set([
   'submission_pending',
@@ -87,8 +92,10 @@ export default function InvoiceFormPage() {
     const nextErrors = validateForm(form);
     setErrors(nextErrors);
     if (hasErrors(nextErrors)) {
-      setResultMessage('Fix validation errors before saving.');
-      setResultError({ message: 'Client validation failed' });
+      setResultMessage(
+        `${MSG.formIncompleteSave} ${summarizeFormErrors(nextErrors)}`
+      );
+      setResultError({ message: 'Incomplete form' });
       return;
     }
 
@@ -96,13 +103,13 @@ export default function InvoiceFormPage() {
     setResultError(null);
     try {
       const data = await saveDraft(form, invoiceId);
-      applyInvoiceState(data.invoice, data.message || 'Draft saved');
+      applyInvoiceState(data.invoice, MSG.draftSaved);
     } catch (err) {
       const payload = getErrorPayload(err);
       applyInvoiceState(
         payload.invoice,
-        payload.message,
-        payload.error || payload,
+        humanizeApiError(payload, 'save'),
+        payload.error || { message: humanizeApiError(payload, 'save') },
         { fbrResponse: payload.fbrResponse, fbrHttpStatus: payload.fbrHttpStatus }
       );
     } finally {
@@ -114,8 +121,10 @@ export default function InvoiceFormPage() {
     const nextErrors = validateForm(form);
     setErrors(nextErrors);
     if (hasErrors(nextErrors)) {
-      setResultMessage('Fix validation errors before validating with FBR.');
-      setResultError({ message: 'Client validation failed' });
+      setResultMessage(
+        `${MSG.formIncompleteValidate} ${summarizeFormErrors(nextErrors)}`
+      );
+      setResultError({ message: 'Incomplete form' });
       return;
     }
 
@@ -136,19 +145,23 @@ export default function InvoiceFormPage() {
       const failed = data.invoice?.status === 'validation_failed';
       applyInvoiceState(
         data.invoice,
-        data.message ||
-          (failed
-            ? 'FBR validation failed'
-            : 'FBR validation succeeded (sandbox)'),
-        failed ? { message: data.message } : null,
+        failed ? MSG.validateFail : MSG.validateOk,
+        failed
+          ? {
+              message: humanizeApiError(
+                { message: data.message, error: data.error },
+                'validate'
+              ),
+            }
+          : null,
         { fbrResponse: data.fbrResponse, fbrHttpStatus: data.fbrHttpStatus }
       );
     } catch (err) {
       const payload = getErrorPayload(err);
       applyInvoiceState(
         payload.invoice,
-        payload.message,
-        payload.error || payload,
+        humanizeApiError(payload, 'validate'),
+        payload.error || { message: humanizeApiError(payload, 'validate') },
         { fbrResponse: payload.fbrResponse, fbrHttpStatus: payload.fbrHttpStatus }
       );
     } finally {
@@ -158,33 +171,28 @@ export default function InvoiceFormPage() {
 
   const handleSubmit = async () => {
     if (status === 'submitted') {
-      setResultMessage(
-        'Invoice already submitted successfully. Duplicate submission blocked.'
-      );
-      setResultError({ message: 'Already submitted' });
+      setResultMessage(MSG.alreadySubmitted);
+      setResultError({ message: MSG.alreadySubmitted });
       return;
     }
     if (status === 'submission_unknown') {
-      setResultMessage(
-        'Previous submission is submission_unknown. Reconcile with FBR before retrying.'
-      );
+      setResultMessage(MSG.submissionUnknown);
       setResultError({
-        message: 'submission_unknown — reconciliation required',
+        message: MSG.submissionUnknown,
         uncertain: true,
       });
       return;
     }
     if (status !== 'validated') {
       setResultMessage(
-        'Validate with FBR successfully before submitting. Current status: ' +
-          status
+        `${MSG.notValidated} (Current step: ${status || 'draft'}.)`
       );
-      setResultError({ message: 'Not validated' });
+      setResultError({ message: MSG.notValidated });
       return;
     }
     if (!invoiceId) {
-      setResultMessage('Save and validate the invoice before submitting.');
-      setResultError({ message: 'Missing invoice id' });
+      setResultMessage(MSG.missingId);
+      setResultError({ message: MSG.missingId });
       return;
     }
 
@@ -194,11 +202,11 @@ export default function InvoiceFormPage() {
       const data = await submitInvoice(invoiceId);
       const ok = data.invoice?.status === 'submitted';
       if (ok) {
-        const message =
-          data.message || 'Invoice submitted successfully to FBR sandbox';
+        const fbrNo = data.invoice.fbrInvoiceNumber ?? null;
+        const message = MSG.submitOk(fbrNo);
         setLastSubmit({
           invoiceId: data.invoice._id,
-          fbrInvoiceNumber: data.invoice.fbrInvoiceNumber ?? null,
+          fbrInvoiceNumber: fbrNo,
           qrCodeData: data.invoice.qrCodeData ?? null,
           message,
           fbrResponse:
@@ -207,9 +215,7 @@ export default function InvoiceFormPage() {
             data.fbrHttpStatus ?? data.invoice.submissionHttpStatus ?? null,
         });
         clearFormForNewEntry();
-        setResultMessage(
-          `${message} Form cleared — you can enter the next invoice.`
-        );
+        setResultMessage(message);
         setResultError(null);
         setFbrResponse(
           data.fbrResponse ?? data.invoice.submissionResponse ?? null
@@ -220,8 +226,8 @@ export default function InvoiceFormPage() {
       } else {
         applyInvoiceState(
           data.invoice,
-          data.message || 'Submission did not confirm success',
-          { message: data.message },
+          MSG.submitUnconfirmed,
+          { message: MSG.submitUnconfirmed },
           { fbrResponse: data.fbrResponse, fbrHttpStatus: data.fbrHttpStatus }
         );
       }
@@ -229,8 +235,14 @@ export default function InvoiceFormPage() {
       const payload = getErrorPayload(err);
       applyInvoiceState(
         payload.invoice,
-        payload.message,
-        payload.error || payload,
+        humanizeApiError(payload, 'submit'),
+        {
+          ...(payload.error || {}),
+          message: humanizeApiError(payload, 'submit'),
+          uncertain:
+            Boolean(payload.error?.uncertain) ||
+            payload.invoice?.status === 'submission_unknown',
+        },
         { fbrResponse: payload.fbrResponse, fbrHttpStatus: payload.fbrHttpStatus }
       );
     } finally {
@@ -525,8 +537,8 @@ export default function InvoiceFormPage() {
           </div>
 
           <p className="mb-3 text-xs text-slate-500">
-            Flow: Save Draft → Validate with FBR → Submit to FBR. Submit is
-            enabled only when status is <span className="font-mono">validated</span>.
+            Steps: 1) Save Draft → 2) Validate with FBR → 3) Submit to FBR.
+            Submit stays disabled until FBR accepts the validation step.
           </p>
 
           <div className="flex flex-wrap gap-2">
@@ -579,11 +591,11 @@ export default function InvoiceFormPage() {
 
         {lastSubmit ? (
           <p className="rounded border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
-            Last invoice submitted to FBR
+            Success — last invoice was submitted to FBR
             {lastSubmit.fbrInvoiceNumber
-              ? ` (${lastSubmit.fbrInvoiceNumber})`
+              ? ` (FBR number ${lastSubmit.fbrInvoiceNumber})`
               : ''}
-            . Form is ready for a new entry.{' '}
+            . This form is ready for a new invoice.{' '}
             <Link
               to="/dashboard"
               className="font-semibold underline hover:text-emerald-950"
