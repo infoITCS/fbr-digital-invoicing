@@ -69,36 +69,71 @@ export const SALE_TYPE_OPTIONS = [
   'Non-Adjustable Supplies',
 ];
 
+/** ITCS-approved sandbox scenarios only (code + display name for the team) */
 export const SCENARIO_OPTIONS = [
-  'SN001',
-  'SN002',
-  'SN003',
-  'SN004',
-  'SN005',
-  'SN006',
-  'SN007',
-  'SN008',
-  'SN009',
-  'SN010',
-  'SN011',
-  'SN012',
-  'SN013',
-  'SN014',
-  'SN015',
-  'SN016',
-  'SN017',
-  'SN018',
-  'SN019',
-  'SN020',
-  'SN021',
-  'SN022',
-  'SN023',
-  'SN024',
-  'SN025',
-  'SN026',
-  'SN027',
-  'SN028',
+  {
+    id: 'SN001',
+    name: 'Goods at Standard Rate to Registered Buyers',
+  },
+  {
+    id: 'SN002',
+    name: 'Goods at Standard Rate to Unregistered Buyers',
+  },
+  {
+    id: 'SN005',
+    name: 'Reduced Rate Sale',
+  },
+  {
+    id: 'SN006',
+    name: 'Exempt Goods Sale',
+  },
+  {
+    id: 'SN007',
+    name: 'Zero Rated Sale',
+  },
+  {
+    id: 'SN008',
+    name: 'Sale of 3rd Schedule Goods',
+  },
+  {
+    id: 'SN016',
+    name: 'Processing / Conversion of Goods',
+  },
+  {
+    id: 'SN017',
+    name: 'Sale of Goods where FED is Charged in ST Mode',
+  },
+  {
+    id: 'SN018',
+    name: 'Services Rendered or Provided Where FED is Charged in ST Mode',
+  },
+  {
+    id: 'SN019',
+    name: 'Services Rendered or Provided',
+  },
+  {
+    id: 'SN024',
+    name: 'Goods Sold that are Listed in SRO 297(1)/2023',
+  },
+  {
+    id: 'SN026',
+    name: 'Sale to End Consumer by Retailers',
+  },
+  {
+    id: 'SN027',
+    name: 'Sale to End Consumer by Retailers',
+  },
+  {
+    id: 'SN028',
+    name: 'Sale to End Consumer by Retailers',
+  },
 ];
+
+export function getScenarioLabel(scenarioId) {
+  const found = SCENARIO_OPTIONS.find((s) => s.id === scenarioId);
+  if (!found) return scenarioId || '—';
+  return `${found.id} — ${found.name}`;
+}
 
 /** ITCS seller defaults (editable) */
 export const ITCS_SELLER = {

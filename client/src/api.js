@@ -74,8 +74,8 @@ export async function submitInvoice(id) {
   return data;
 }
 
-export async function fetchDashboard() {
-  const { data } = await api.get('/invoices/dashboard');
+export async function fetchDashboard(params = {}) {
+  const { data } = await api.get('/invoices/dashboard', { params });
   return data;
 }
 

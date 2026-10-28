@@ -14,8 +14,24 @@ const {
   computeTotals,
   validateInvoiceData,
 } = require('../utils/invoicePayload');
+const {
+  toPublicInvoiceDetail,
+  toPublicInvoiceListItem,
+} = require('../utils/invoicePublic');
+const { env } = require('../config/env');
 
 const router = express.Router();
+
+function assignFbrInvoiceNumber(invoice, interpretation) {
+  // Only from official FBR response field invoiceNumber (via interpretFbrValidation)
+  const num = interpretation?.fbrInvoiceNumber;
+  if (num == null || String(num).trim() === '') return;
+  const value = String(num).trim();
+  // Never confuse with local id or our invoiceRefNo
+  if (value === String(invoice._id)) return;
+  if (invoice.invoiceRefNo && value === String(invoice.invoiceRefNo)) return;
+  invoice.fbrInvoiceNumber = value;
+}
 
 function isValidObjectId(id) {
   return mongoose.Types.ObjectId.isValid(id);
@@ -48,47 +64,70 @@ function rejectIfNotEditable(invoice, res) {
 
 /**
  * GET /api/invoices/dashboard
- * Stats + list of invoices submitted to FBR (and submission_unknown for visibility).
- * Must be registered before /:id routes.
+ * Stats + filterable/paginated invoice list.
+ * Query: q, status, dateFrom, dateTo, page, limit, list=submitted|all
  */
 router.get('/dashboard', async (req, res, next) => {
   try {
-    const [statusCounts, submitted, unknown] = await Promise.all([
-      Invoice.aggregate([
-        { $group: { _id: '$status', count: { $sum: 1 } } },
-      ]),
-      Invoice.find({ status: STATUS.SUBMITTED })
-        .sort({ submittedAt: -1, updatedAt: -1 })
-        .select(
-          [
-            'invoiceType',
-            'invoiceDate',
-            'scenarioId',
-            'invoiceRefNo',
-            'sellerNTNCNIC',
-            'sellerBusinessName',
-            'buyerNTNCNIC',
-            'buyerBusinessName',
-            'buyerRegistrationType',
-            'items',
-            'totals',
-            'status',
-            'fbrInvoiceNumber',
-            'submittedAt',
-            'validatedAt',
-            'submissionHttpStatus',
-            'createdAt',
-            'updatedAt',
-          ].join(' ')
-        )
-        .lean(),
-      Invoice.find({ status: STATUS.SUBMISSION_UNKNOWN })
-        .sort({ submissionAttemptAt: -1, updatedAt: -1 })
-        .select(
-          'invoiceDate scenarioId buyerBusinessName buyerNTNCNIC totals status fbrInvoiceNumber submittedAt submissionAttemptAt createdAt'
-        )
-        .lean(),
-    ]);
+    const page = Math.max(1, Number(req.query.page) || 1);
+    const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 20));
+    const skip = (page - 1) * limit;
+    const q = String(req.query.q || '').trim();
+    const statusFilter = String(req.query.status || '').trim();
+    const dateFrom = String(req.query.dateFrom || '').trim();
+    const dateTo = String(req.query.dateTo || '').trim();
+    const listMode = String(req.query.list || 'submitted').toLowerCase();
+
+    const listFilter = {};
+    if (listMode === 'all') {
+      // no status lock
+    } else if (statusFilter && Object.values(STATUS).includes(statusFilter)) {
+      listFilter.status = statusFilter;
+    } else {
+      listFilter.status = STATUS.SUBMITTED;
+    }
+
+    if (statusFilter && listMode === 'all' && Object.values(STATUS).includes(statusFilter)) {
+      listFilter.status = statusFilter;
+    }
+
+    if (dateFrom || dateTo) {
+      listFilter.invoiceDate = {};
+      if (dateFrom) listFilter.invoiceDate.$gte = dateFrom;
+      if (dateTo) listFilter.invoiceDate.$lte = dateTo;
+    }
+
+    if (q) {
+      const escaped = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const rx = new RegExp(escaped, 'i');
+      listFilter.$or = [
+        { fbrInvoiceNumber: rx },
+        { invoiceRefNo: rx },
+        { buyerBusinessName: rx },
+        { buyerNTNCNIC: rx },
+        { scenarioId: rx },
+        { sellerBusinessName: rx },
+      ];
+      if (mongoose.Types.ObjectId.isValid(q)) {
+        listFilter.$or.push({ _id: q });
+      }
+    }
+
+    const [statusCounts, submittedAll, unknown, totalFiltered, pageDocs] =
+      await Promise.all([
+        Invoice.aggregate([{ $group: { _id: '$status', count: { $sum: 1 } } }]),
+        Invoice.find({ status: STATUS.SUBMITTED }).select('totals status').lean(),
+        Invoice.find({ status: STATUS.SUBMISSION_UNKNOWN })
+          .sort({ submissionAttemptAt: -1, updatedAt: -1 })
+          .limit(50)
+          .lean(),
+        Invoice.countDocuments(listFilter),
+        Invoice.find(listFilter)
+          .sort({ submittedAt: -1, updatedAt: -1 })
+          .skip(skip)
+          .limit(limit)
+          .lean(),
+      ]);
 
     const byStatus = Object.values(STATUS).reduce((acc, key) => {
       acc[key] = 0;
@@ -108,35 +147,43 @@ router.get('/dashboard', async (req, res, next) => {
     const stats = {
       totalInvoices: Object.values(byStatus).reduce((a, b) => a + b, 0),
       byStatus,
-      submittedCount: submitted.length,
-      submissionUnknownCount: unknown.length,
+      submittedCount: byStatus[STATUS.SUBMITTED] || submittedAll.length,
+      submissionUnknownCount: byStatus[STATUS.SUBMISSION_UNKNOWN] || 0,
       totalSalesExcludingST: round2(
-        sumField(submitted, 'totals.valueSalesExcludingST')
+        sumField(submittedAll, 'totals.valueSalesExcludingST')
       ),
-      totalSalesTax: round2(sumField(submitted, 'totals.salesTaxApplicable')),
-      totalInvoiceValue: round2(sumField(submitted, 'totals.totalValues')),
-      totalFurtherTax: round2(sumField(submitted, 'totals.furtherTax')),
-      totalDiscount: round2(sumField(submitted, 'totals.discount')),
+      totalSalesTax: round2(sumField(submittedAll, 'totals.salesTaxApplicable')),
+      totalInvoiceValue: round2(sumField(submittedAll, 'totals.totalValues')),
+      totalFurtherTax: round2(sumField(submittedAll, 'totals.furtherTax')),
+      totalExtraTax: round2(sumField(submittedAll, 'totals.extraTax')),
+      totalDiscount: round2(sumField(submittedAll, 'totals.discount')),
+      environment: env.fbrEnvironment,
     };
-
-    const invoices = submitted.map((inv) => ({
-      ...inv,
-      itemCount: Array.isArray(inv.items) ? inv.items.length : 0,
-      // Avoid sending full item rows in the table list
-      items: undefined,
-    }));
 
     res.json({
       stats,
-      invoices,
-      unknownSubmissions: unknown,
+      invoices: pageDocs.map(toPublicInvoiceListItem),
+      unknownSubmissions: unknown.map(toPublicInvoiceListItem),
+      pagination: {
+        page,
+        limit,
+        total: totalFiltered,
+        totalPages: Math.max(1, Math.ceil(totalFiltered / limit)),
+      },
+      filters: {
+        q,
+        status: statusFilter || (listMode === 'submitted' ? STATUS.SUBMITTED : ''),
+        dateFrom,
+        dateTo,
+        list: listMode,
+      },
     });
   } catch (err) {
     next(err);
   }
 });
 
-/** GET /api/invoices/:id — fetch one invoice (for detail / recovery) */
+/** GET /api/invoices/:id — full detail (authorized fields, no secrets) */
 router.get('/:id', async (req, res, next) => {
   try {
     if (!isValidObjectId(req.params.id)) {
@@ -146,7 +193,9 @@ router.get('/:id', async (req, res, next) => {
     if (!invoice) {
       return res.status(404).json({ message: 'Invoice not found' });
     }
-    res.json({ invoice });
+    res.json({
+      invoice: toPublicInvoiceDetail(invoice),
+    });
   } catch (err) {
     next(err);
   }
@@ -287,6 +336,8 @@ router.post('/:id/validate', async (req, res, next) => {
     try {
       const result = await validateInvoice(invoice);
 
+      invoice.fbrEnvironment = env.fbrEnvironment;
+      invoice.validationRequestPayload = result.requestPayload || null;
       invoice.validationResponse = result.data;
       invoice.validationHttpStatus = result.httpStatus;
       invoice.validatedAt = new Date();
@@ -304,10 +355,7 @@ router.post('/:id/validate', async (req, res, next) => {
       // HTTP 200 is not enough — use FBR validationResponse
       if (interpretation.outcome === 'valid') {
         invoice.status = STATUS.VALIDATED;
-        if (interpretation.fbrInvoiceNumber) {
-          // Validate may return a provisional number in some samples; store if present
-          invoice.fbrInvoiceNumber = interpretation.fbrInvoiceNumber;
-        }
+        assignFbrInvoiceNumber(invoice, interpretation);
         if (interpretation.qrCodeData != null) {
           invoice.qrCodeData = interpretation.qrCodeData;
         }
@@ -329,7 +377,7 @@ router.post('/:id/validate', async (req, res, next) => {
         message: success
           ? 'FBR validation succeeded (sandbox)'
           : 'FBR validation failed — see fbrResponse for details',
-        invoice,
+        invoice: toPublicInvoiceDetail(invoice),
         fbrHttpStatus: result.httpStatus,
         fbrResponse: result.data,
         interpretation,
@@ -338,6 +386,9 @@ router.post('/:id/validate', async (req, res, next) => {
       const formatted = formatSafeFbrError(error);
       invoice.status = STATUS.VALIDATION_FAILED;
       invoice.lastError = formatted;
+      if (error.requestPayload) {
+        invoice.validationRequestPayload = error.requestPayload;
+      }
       invoice.validationResponse = error.fbrBody ?? {
         error: error.message,
         code: error.code,
@@ -358,7 +409,7 @@ router.post('/:id/validate', async (req, res, next) => {
         .json({
           message: formatted.message,
           error: formatted,
-          invoice,
+          invoice: toPublicInvoiceDetail(invoice),
           fbrHttpStatus: formatted.httpStatus,
           fbrResponse: error.fbrBody ?? null,
         });
@@ -444,6 +495,8 @@ router.post('/:id/submit', async (req, res, next) => {
     try {
       const result = await submitInvoice(invoice);
 
+      invoice.fbrEnvironment = env.fbrEnvironment;
+      invoice.submissionRequestPayload = result.requestPayload || null;
       invoice.submissionResponse = result.data;
       invoice.submissionHttpStatus = result.httpStatus;
       invoice.submittedAt = new Date();
@@ -466,9 +519,7 @@ router.post('/:id/submit', async (req, res, next) => {
       if (confirmed) {
         invoice.status = STATUS.SUBMITTED;
         invoice.submissionLocked = false;
-        if (interpretation.fbrInvoiceNumber) {
-          invoice.fbrInvoiceNumber = interpretation.fbrInvoiceNumber;
-        }
+        assignFbrInvoiceNumber(invoice, interpretation);
         if (interpretation.qrCodeData != null) {
           invoice.qrCodeData = interpretation.qrCodeData;
         }
@@ -480,7 +531,7 @@ router.post('/:id/submit', async (req, res, next) => {
 
         return res.json({
           message: 'Invoice submitted successfully to FBR sandbox',
-          invoice,
+          invoice: toPublicInvoiceDetail(invoice),
           fbrHttpStatus: result.httpStatus,
           fbrResponse: result.data,
           interpretation,
@@ -500,7 +551,7 @@ router.post('/:id/submit', async (req, res, next) => {
       return res.status(422).json({
         message:
           'FBR rejected the submission — invoice was NOT marked as submitted',
-        invoice,
+        invoice: toPublicInvoiceDetail(invoice),
         fbrHttpStatus: result.httpStatus,
         fbrResponse: result.data,
         interpretation,
@@ -517,6 +568,9 @@ router.post('/:id/submit', async (req, res, next) => {
       }
 
       invoice.lastError = formatted;
+      if (error.requestPayload) {
+        invoice.submissionRequestPayload = error.requestPayload;
+      }
       invoice.submissionResponse = error.fbrBody ?? {
         error: error.message,
         code: error.code,
@@ -537,7 +591,7 @@ router.post('/:id/submit', async (req, res, next) => {
         .json({
           message: formatted.message,
           error: formatted,
-          invoice,
+          invoice: toPublicInvoiceDetail(invoice),
           fbrHttpStatus: formatted.httpStatus,
           fbrResponse: error.fbrBody ?? null,
         });

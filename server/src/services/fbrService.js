@@ -127,6 +127,8 @@ async function callFbr(operation, url, invoice) {
         data,
         durationMs,
         endpoint: endpointName,
+        // Exact body sent to FBR — never includes Authorization
+        requestPayload: payload,
         interpretation: interpretFbrValidation(
           typeof data === 'object' ? data : null
         ),
@@ -143,6 +145,7 @@ async function callFbr(operation, url, invoice) {
       fbrStatus: data?.validationResponse?.status ?? null,
       fbrStatusCode: data?.validationResponse?.statusCode ?? null,
       fbrErrorCode: data?.validationResponse?.errorCode ?? null,
+      // Official FBR property name for returned invoice number
       invoiceNumber: data?.invoiceNumber ?? null,
       outcome: interpretation.outcome,
     });
@@ -152,6 +155,7 @@ async function callFbr(operation, url, invoice) {
       data,
       durationMs,
       endpoint: endpointName,
+      requestPayload: payload,
       interpretation,
     };
   } catch (error) {
@@ -168,6 +172,7 @@ async function callFbr(operation, url, invoice) {
     });
     normalized.durationMs = durationMs;
     normalized.endpoint = endpointName;
+    normalized.requestPayload = payload;
     throw normalized;
   }
 }

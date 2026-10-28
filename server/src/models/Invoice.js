@@ -74,13 +74,24 @@ const invoiceSchema = new mongoose.Schema(
       default: STATUS.DRAFT,
     },
 
+    /**
+     * FBR-returned invoice number only (from response.invoiceNumber).
+     * Never copy from invoiceRefNo or MongoDB _id.
+     */
     fbrInvoiceNumber: { type: String, default: null },
     qrCodeData: { type: mongoose.Schema.Types.Mixed, default: null },
 
+    /** Snapshot of FBR environment used for this invoice (sandbox | production) */
+    fbrEnvironment: { type: String, default: 'sandbox' },
+
+    /** Exact JSON body sent to FBR validate (no auth headers / tokens) */
+    validationRequestPayload: { type: mongoose.Schema.Types.Mixed, default: null },
     validationResponse: { type: mongoose.Schema.Types.Mixed, default: null },
     validationHttpStatus: { type: Number, default: null },
     validatedAt: { type: Date, default: null },
 
+    /** Exact JSON body sent to FBR submit (no auth headers / tokens) */
+    submissionRequestPayload: { type: mongoose.Schema.Types.Mixed, default: null },
     submissionResponse: { type: mongoose.Schema.Types.Mixed, default: null },
     submissionHttpStatus: { type: Number, default: null },
     submittedAt: { type: Date, default: null },

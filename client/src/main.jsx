@@ -5,6 +5,7 @@ import { MsalProvider } from '@azure/msal-react';
 import './index.css';
 import InvoiceFormPage from './App.jsx';
 import DashboardPage from './pages/DashboardPage.jsx';
+import InvoiceDetailPage from './pages/InvoiceDetailPage.jsx';
 import LoginPage from './pages/LoginPage.jsx';
 import RequireAuth from './components/RequireAuth.jsx';
 import { initMsal, getAuthConfig } from './auth/msal';
@@ -88,6 +89,14 @@ function Root() {
             element={
               <RequireAuth>
                 <DashboardPage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/invoices/:id"
+            element={
+              <RequireAuth>
+                <InvoiceDetailPage />
               </RequireAuth>
             }
           />

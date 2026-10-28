@@ -41,12 +41,23 @@ export default function InvoiceFormPage() {
   const [fbrResponse, setFbrResponse] = useState(null);
   const [fbrHttpStatus, setFbrHttpStatus] = useState(null);
   const [busy, setBusy] = useState(null);
+  /** Last successful submit — shown after form is cleared for the next invoice */
+  const [lastSubmit, setLastSubmit] = useState(null);
 
   const totals = useMemo(() => calcInvoiceTotals(form.items), [form.items]);
   const formLocked = busy != null || LOCKED_STATUSES.has(status);
 
   const updateField = (name, value) => {
     setForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const clearFormForNewEntry = () => {
+    setForm(createInitialForm());
+    setErrors({});
+    setInvoiceId(null);
+    setStatus('draft');
+    setFbrInvoiceNumber(null);
+    setQrCodeData(null);
   };
 
   const applyInvoiceState = (invoice, message, error = null, extras = {}) => {
@@ -182,15 +193,38 @@ export default function InvoiceFormPage() {
     try {
       const data = await submitInvoice(invoiceId);
       const ok = data.invoice?.status === 'submitted';
-      applyInvoiceState(
-        data.invoice,
-        data.message ||
-          (ok
-            ? 'Invoice submitted successfully to FBR sandbox'
-            : 'Submission did not confirm success'),
-        ok ? null : { message: data.message },
-        { fbrResponse: data.fbrResponse, fbrHttpStatus: data.fbrHttpStatus }
-      );
+      if (ok) {
+        const message =
+          data.message || 'Invoice submitted successfully to FBR sandbox';
+        setLastSubmit({
+          invoiceId: data.invoice._id,
+          fbrInvoiceNumber: data.invoice.fbrInvoiceNumber ?? null,
+          qrCodeData: data.invoice.qrCodeData ?? null,
+          message,
+          fbrResponse:
+            data.fbrResponse ?? data.invoice.submissionResponse ?? null,
+          fbrHttpStatus:
+            data.fbrHttpStatus ?? data.invoice.submissionHttpStatus ?? null,
+        });
+        clearFormForNewEntry();
+        setResultMessage(
+          `${message} Form cleared — you can enter the next invoice.`
+        );
+        setResultError(null);
+        setFbrResponse(
+          data.fbrResponse ?? data.invoice.submissionResponse ?? null
+        );
+        setFbrHttpStatus(
+          data.fbrHttpStatus ?? data.invoice.submissionHttpStatus ?? null
+        );
+      } else {
+        applyInvoiceState(
+          data.invoice,
+          data.message || 'Submission did not confirm success',
+          { message: data.message },
+          { fbrResponse: data.fbrResponse, fbrHttpStatus: data.fbrHttpStatus }
+        );
+      }
     } catch (err) {
       const payload = getErrorPayload(err);
       applyInvoiceState(
@@ -257,7 +291,7 @@ export default function InvoiceFormPage() {
               name="scenarioId"
               required
               error={errors.scenarioId}
-              hint="Required for sandbox testing"
+              hint="Sandbox scenario — code is sent to FBR; name is for the team"
             >
               <select
                 id="scenarioId"
@@ -267,8 +301,8 @@ export default function InvoiceFormPage() {
                 onChange={(e) => updateField('scenarioId', e.target.value)}
               >
                 {SCENARIO_OPTIONS.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
+                  <option key={s.id} value={s.id}>
+                    {s.id} — {s.name}
                   </option>
                 ))}
               </select>
@@ -527,19 +561,29 @@ export default function InvoiceFormPage() {
         </section>
 
         <ResponsePanel
-          invoiceId={invoiceId}
-          status={status}
-          fbrInvoiceNumber={fbrInvoiceNumber}
-          qrCodeData={qrCodeData}
+          invoiceId={lastSubmit?.invoiceId ?? invoiceId}
+          status={lastSubmit && !invoiceId ? 'submitted' : status}
+          fbrInvoiceNumber={
+            lastSubmit && !invoiceId
+              ? lastSubmit.fbrInvoiceNumber
+              : fbrInvoiceNumber
+          }
+          qrCodeData={
+            lastSubmit && !invoiceId ? lastSubmit.qrCodeData : qrCodeData
+          }
           message={resultMessage}
           error={resultError}
           fbrResponse={fbrResponse}
           fbrHttpStatus={fbrHttpStatus}
         />
 
-        {status === 'submitted' ? (
+        {lastSubmit ? (
           <p className="rounded border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
-            Invoice submitted to FBR.{' '}
+            Last invoice submitted to FBR
+            {lastSubmit.fbrInvoiceNumber
+              ? ` (${lastSubmit.fbrInvoiceNumber})`
+              : ''}
+            . Form is ready for a new entry.{' '}
             <Link
               to="/dashboard"
               className="font-semibold underline hover:text-emerald-950"
