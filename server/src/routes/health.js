@@ -15,12 +15,16 @@ router.get('/', (_req, res) => {
 
   const readiness = getConfigReadiness();
   const mongodb = dbLabels[dbState] || 'unknown';
+  const urlsMatchEnvironment =
+    readiness.environment === 'production'
+      ? readiness.validateUrlIsProduction && readiness.submitUrlIsProduction
+      : readiness.validateUrlIsSandbox && readiness.submitUrlIsSandbox;
   const ready =
-    readiness.environment === 'sandbox' &&
+    (readiness.environment === 'sandbox' ||
+      readiness.environment === 'production') &&
     readiness.mongodbConfigured &&
     readiness.fbrTokenConfigured &&
-    readiness.validateUrlIsSandbox &&
-    readiness.submitUrlIsSandbox &&
+    urlsMatchEnvironment &&
     mongodb === 'connected';
 
   res.json({
@@ -38,6 +42,8 @@ router.get('/', (_req, res) => {
       envFileLoaded: readiness.envFileLoaded,
       validateUrlIsSandbox: readiness.validateUrlIsSandbox,
       submitUrlIsSandbox: readiness.submitUrlIsSandbox,
+      validateUrlIsProduction: readiness.validateUrlIsProduction,
+      submitUrlIsProduction: readiness.submitUrlIsProduction,
       validateEndpoint: readiness.validateEndpoint,
       submitEndpoint: readiness.submitEndpoint,
       validateUrl: readiness.validateUrl,

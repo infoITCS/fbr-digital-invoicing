@@ -49,7 +49,7 @@ function laymanFbrMessage(operation, kind, httpStatus) {
       : 'FBR did not reply in time while checking this invoice. Wait a moment and try Validate again.';
   }
   if (kind === 'auth') {
-    return 'FBR rejected our login token. Ask your admin to check the FBR sandbox token on the server. This invoice was not accepted.';
+    return 'FBR rejected our login token. Ask your admin to check the FBR API token on the server. This invoice was not accepted.';
   }
   if (kind === 'http') {
     return isSubmit
@@ -108,7 +108,13 @@ function normalizeAxiosError(error, operation) {
 async function callFbr(operation, url, invoice) {
   const payload = buildFbrPayload(invoice);
   const endpointName =
-    operation === 'validate' ? 'validateinvoicedata_sb' : 'postinvoicedata_sb';
+    operation === 'validate'
+      ? env.fbrEnvironment === 'production'
+        ? 'validateinvoicedata'
+        : 'validateinvoicedata_sb'
+      : env.fbrEnvironment === 'production'
+        ? 'postinvoicedata'
+        : 'postinvoicedata_sb';
 
   const tokenMeta = getTokenDiagnostics();
   const authMeta = describeAuthHeader();

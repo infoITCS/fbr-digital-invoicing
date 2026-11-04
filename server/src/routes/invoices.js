@@ -448,7 +448,11 @@ router.post('/:id/validate', async (req, res, next) => {
         body: error.fbrBody,
         at: invoice.validatedAt,
         durationMs: error.durationMs ?? null,
-        endpoint: error.endpoint || 'validateinvoicedata_sb',
+        endpoint:
+          error.endpoint ||
+          (env.fbrEnvironment === 'production'
+            ? 'validateinvoicedata'
+            : 'validateinvoicedata_sb'),
       };
       await invoice.save();
 
@@ -638,7 +642,11 @@ router.post('/:id/submit', async (req, res, next) => {
         body: error.fbrBody,
         at: invoice.submittedAt,
         durationMs: error.durationMs ?? null,
-        endpoint: error.endpoint || 'postinvoicedata_sb',
+        endpoint:
+          error.endpoint ||
+          (env.fbrEnvironment === 'production'
+            ? 'postinvoicedata'
+            : 'postinvoicedata_sb'),
       };
       await invoice.save();
 

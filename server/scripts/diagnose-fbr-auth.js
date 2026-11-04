@@ -77,23 +77,34 @@ console.log('authHasDoubleBearer:', auth.doubleBearer);
 console.log('authHeaderLength:', auth.headerLength);
 console.log('readiness:', getConfigReadiness());
 
-const expectedValidate =
+const expectedSandboxValidate =
   'https://gw.fbr.gov.pk/di_data/v1/di/validateinvoicedata_sb';
-const expectedSubmit =
+const expectedSandboxSubmit =
   'https://gw.fbr.gov.pk/di_data/v1/di/postinvoicedata_sb';
+const expectedProductionValidate =
+  'https://gw.fbr.gov.pk/di_data/v1/di/validateinvoicedata';
+const expectedProductionSubmit =
+  'https://gw.fbr.gov.pk/di_data/v1/di/postinvoicedata';
+const production = env.fbrEnvironment === 'production';
 console.log(
-  '\nURL match official sandbox validate?',
-  env.fbrValidateUrl === expectedValidate
+  production
+    ? '\nURL match official production validate?'
+    : '\nURL match official sandbox validate?',
+  env.fbrValidateUrl ===
+    (production ? expectedProductionValidate : expectedSandboxValidate)
 );
 console.log(
-  'URL match official sandbox submit?',
-  env.fbrSubmitUrl === expectedSubmit
+  production
+    ? 'URL match official production submit?'
+    : 'URL match official sandbox submit?',
+  env.fbrSubmitUrl ===
+    (production ? expectedProductionSubmit : expectedSandboxSubmit)
 );
 
 if (token.length > 0 && token.length < 40) {
   console.log(
     '\n[warn] Token trim length is unusually short for a PRAL/IRIS security token.' +
-      ' Confirm you pasted the full sandbox token (not a truncated copy).'
+      ' Confirm you pasted the full FBR token (not a truncated copy).'
   );
 }
 

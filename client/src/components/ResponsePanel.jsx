@@ -148,7 +148,7 @@ export default function ResponsePanel({
               We sent the invoice, but FBR did not give a clear reply (timeout
               or connection problem). It may or may not have been received. Do
               not click Submit again. Check the Dashboard, or ask your admin to
-              confirm in the FBR sandbox, before any retry.
+              confirm in FBR, before any retry.
             </p>
           </div>
         ) : null}

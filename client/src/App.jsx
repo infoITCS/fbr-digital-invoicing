@@ -303,7 +303,7 @@ export default function InvoiceFormPage() {
               name="scenarioId"
               required
               error={errors.scenarioId}
-              hint="Sandbox scenario — code is sent to FBR; name is for the team"
+              hint="FBR scenario — code is sent to FBR; name is for the team"
             >
               <select
                 id="scenarioId"

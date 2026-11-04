@@ -1,7 +1,7 @@
 {
   "name": "itcs-fbr-invoicing-server",
   "version": "1.0.0",
-  "description": "ITCS FBR Digital Invoicing API (sandbox)",
+  "description": "ITCS FBR Digital Invoicing API",
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",

@@ -24,6 +24,19 @@ const SANDBOX_VALIDATE =
   'https://gw.fbr.gov.pk/di_data/v1/di/validateinvoicedata_sb';
 const SANDBOX_SUBMIT =
   'https://gw.fbr.gov.pk/di_data/v1/di/postinvoicedata_sb';
+const PRODUCTION_VALIDATE =
+  'https://gw.fbr.gov.pk/di_data/v1/di/validateinvoicedata';
+const PRODUCTION_SUBMIT =
+  'https://gw.fbr.gov.pk/di_data/v1/di/postinvoicedata';
+const ALLOWED_FBR_ENVIRONMENTS = new Set(['sandbox', 'production']);
+
+function currentFbrEnvironment() {
+  return (process.env.FBR_ENVIRONMENT || 'sandbox').toLowerCase();
+}
+
+function isProductionEnvironment() {
+  return currentFbrEnvironment() === 'production';
+}
 
 function resolveValidateUrl() {
   if (process.env.FBR_VALIDATE_URL) return process.env.FBR_VALIDATE_URL.trim();
@@ -34,10 +47,12 @@ function resolveValidateUrl() {
     );
     const p =
       process.env.FBR_VALIDATE_PATH ||
-      '/di_data/v1/di/validateinvoicedata_sb';
+      (isProductionEnvironment()
+        ? '/di_data/v1/di/validateinvoicedata'
+        : '/di_data/v1/di/validateinvoicedata_sb');
     return `${base}${p.startsWith('/') ? p : `/${p}`}`;
   }
-  return SANDBOX_VALIDATE;
+  return isProductionEnvironment() ? PRODUCTION_VALIDATE : SANDBOX_VALIDATE;
 }
 
 function resolveSubmitUrl() {
@@ -48,10 +63,13 @@ function resolveSubmitUrl() {
       ''
     );
     const p =
-      process.env.FBR_SUBMIT_PATH || '/di_data/v1/di/postinvoicedata_sb';
+      process.env.FBR_SUBMIT_PATH ||
+      (isProductionEnvironment()
+        ? '/di_data/v1/di/postinvoicedata'
+        : '/di_data/v1/di/postinvoicedata_sb');
     return `${base}${p.startsWith('/') ? p : `/${p}`}`;
   }
-  return SANDBOX_SUBMIT;
+  return isProductionEnvironment() ? PRODUCTION_SUBMIT : SANDBOX_SUBMIT;
 }
 
 /** Live getters so tests / reloads see current process.env */
@@ -70,7 +88,7 @@ const env = {
     return String(process.env.SERVE_CLIENT || '').toLowerCase() === 'true';
   },
   get fbrEnvironment() {
-    return (process.env.FBR_ENVIRONMENT || 'sandbox').toLowerCase();
+    return currentFbrEnvironment();
   },
   get fbrApiToken() {
     // Always return normalized token (trim / strip quotes / strip duplicate Bearer)
@@ -109,6 +127,24 @@ function isSandboxUrl(url) {
   return u.includes('_sb') || u.includes('sandbox');
 }
 
+function isProductionUrl(url) {
+  const u = String(url || '').toLowerCase();
+  if (!u || isSandboxUrl(u)) return false;
+  return (
+    u.includes('gw.fbr.gov.pk') &&
+    (u.includes('/validateinvoicedata') || u.includes('/postinvoicedata'))
+  );
+}
+
+function endpointNameFromUrl(url, fallback) {
+  try {
+    const last = new URL(url).pathname.split('/').filter(Boolean).pop();
+    return last || fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 function assertRequiredConfig() {
   const missing = [];
   if (!env.mongodbUri) missing.push('MONGODB_URI');
@@ -128,20 +164,34 @@ function assertRequiredConfig() {
 }
 
 function assertSafeFbrConfig() {
-  if (env.fbrEnvironment !== 'sandbox') {
+  if (!ALLOWED_FBR_ENVIRONMENTS.has(env.fbrEnvironment)) {
     throw new Error(
       `FBR_ENVIRONMENT="${env.fbrEnvironment}" is not allowed. ` +
-        'This application is sandbox-only until production is explicitly authorized.'
+        'Use "sandbox" or "production".'
     );
   }
 
-  const validateOk = isSandboxUrl(env.fbrValidateUrl);
-  const submitOk = isSandboxUrl(env.fbrSubmitUrl);
+  const validateSandbox = isSandboxUrl(env.fbrValidateUrl);
+  const submitSandbox = isSandboxUrl(env.fbrSubmitUrl);
+  const validateProduction = isProductionUrl(env.fbrValidateUrl);
+  const submitProduction = isProductionUrl(env.fbrSubmitUrl);
 
-  if (!validateOk || !submitOk) {
+  if (env.fbrEnvironment === 'sandbox') {
+    if (!validateSandbox || !submitSandbox) {
+      throw new Error(
+        'Sandbox FBR_ENVIRONMENT requires sandbox FBR endpoints (*_sb). ' +
+          'Set FBR_VALIDATE_URL and FBR_SUBMIT_URL to the sandbox URLs, ' +
+          'or set FBR_ENVIRONMENT=production.'
+      );
+    }
+    return;
+  }
+
+  if (!validateProduction || !submitProduction) {
     throw new Error(
-      'Non-sandbox FBR endpoints detected. ' +
-        'Configure FBR_VALIDATE_URL and FBR_SUBMIT_URL to sandbox (*_sb) URLs only.'
+      'Production FBR_ENVIRONMENT requires live FBR endpoints (without *_sb). ' +
+        'Set FBR_VALIDATE_URL and FBR_SUBMIT_URL to the production URLs, ' +
+        'or set FBR_ENVIRONMENT=sandbox.'
     );
   }
 }
@@ -164,8 +214,18 @@ function getConfigReadiness() {
           : loadedEnvPath,
     validateUrlIsSandbox: isSandboxUrl(env.fbrValidateUrl),
     submitUrlIsSandbox: isSandboxUrl(env.fbrSubmitUrl),
-    validateEndpoint: 'validateinvoicedata_sb',
-    submitEndpoint: 'postinvoicedata_sb',
+    validateUrlIsProduction: isProductionUrl(env.fbrValidateUrl),
+    submitUrlIsProduction: isProductionUrl(env.fbrSubmitUrl),
+    validateEndpoint: endpointNameFromUrl(
+      env.fbrValidateUrl,
+      isProductionEnvironment()
+        ? 'validateinvoicedata'
+        : 'validateinvoicedata_sb'
+    ),
+    submitEndpoint: endpointNameFromUrl(
+      env.fbrSubmitUrl,
+      isProductionEnvironment() ? 'postinvoicedata' : 'postinvoicedata_sb'
+    ),
     validateUrl: env.fbrValidateUrl,
     submitUrl: env.fbrSubmitUrl,
     azureAdConfigured: Boolean(env.azureAdTenantId && env.azureAdClientId),
@@ -199,6 +259,7 @@ module.exports = {
   assertSafeFbrConfig,
   getConfigReadiness,
   isSandboxUrl,
+  isProductionUrl,
   logSafeAuthStartup,
   serverEnvPath,
   rootEnvPath,

@@ -54,9 +54,9 @@ const CODE_MESSAGES = {
   },
   FBR_AUTH_ERROR: {
     validate:
-      'FBR rejected our login token (unauthorized). Ask your admin to check the FBR sandbox token on the server.',
+      'FBR rejected our login token (unauthorized). Ask your admin to check the FBR API token on the server.',
     submit:
-      'FBR rejected our login token (unauthorized). Ask your admin to check the FBR sandbox token on the server. This invoice was not submitted.',
+      'FBR rejected our login token (unauthorized). Ask your admin to check the FBR API token on the server. This invoice was not submitted.',
     save: 'You are not authorized. Sign out and sign in again with Microsoft.',
   },
   FBR_HTTP_ERROR: {
@@ -193,7 +193,7 @@ export const MSG = {
     'The form is incomplete. Fix the fields marked in red, then click “Validate with FBR” again.',
   draftSaved: 'Draft saved. Next step: click “Validate with FBR”.',
   validateOk:
-    'FBR accepted this invoice (sandbox check passed). Next step: click “Submit to FBR”.',
+    'FBR accepted this invoice (validation passed). Next step: click “Submit to FBR”.',
   validateFail:
     'FBR did not accept this invoice. Read the FBR messages below, correct the form, then click “Validate with FBR” again.',
   alreadySubmitted:
@@ -212,5 +212,5 @@ export const MSG = {
     'FBR did not clearly accept this invoice, so it was not marked as submitted. See the messages below. Fix any issues, validate again, then submit.',
   uncertainTitle: 'Unclear result — do not submit again',
   uncertainBody:
-    'We sent the invoice, but FBR did not give a clear reply (timeout or connection problem). It may or may not have been received. Do not click Submit again. Check the Dashboard, or ask your admin to confirm in the FBR sandbox, before any retry.',
+    'We sent the invoice, but FBR did not give a clear reply (timeout or connection problem). It may or may not have been received. Do not click Submit again. Check the Dashboard, or ask your admin to confirm in FBR, before any retry.',
 };

@@ -1,6 +1,6 @@
-# ITCS FBR Digital Invoicing (Sandbox)
+# ITCS FBR Digital Invoicing
 
-Standalone MERN app for **ITCS** — Microsoft tenant login, invoice form, dashboard of submitted invoices, and FBR **sandbox** validate/submit.
+Standalone MERN app for **ITCS** — Microsoft tenant login, invoice form, dashboard of submitted invoices, and FBR validate/submit in **sandbox** or **production**.
 
 ## Quick start
 
@@ -13,9 +13,13 @@ PORT=5000
 MONGODB_URI=your_mongodb_connection_string
 CLIENT_ORIGIN=http://localhost:5173
 FBR_ENVIRONMENT=sandbox
-FBR_API_TOKEN=YOUR_ACTUAL_SANDBOX_BEARER_TOKEN
+FBR_API_TOKEN=YOUR_ACTUAL_FBR_BEARER_TOKEN
 FBR_VALIDATE_URL=https://gw.fbr.gov.pk/di_data/v1/di/validateinvoicedata_sb
 FBR_SUBMIT_URL=https://gw.fbr.gov.pk/di_data/v1/di/postinvoicedata_sb
+# Production:
+# FBR_ENVIRONMENT=production
+# FBR_VALIDATE_URL=https://gw.fbr.gov.pk/di_data/v1/di/validateinvoicedata
+# FBR_SUBMIT_URL=https://gw.fbr.gov.pk/di_data/v1/di/postinvoicedata
 AZURE_AD_TENANT_ID=your-itcs-tenant-guid
 AZURE_AD_CLIENT_ID=your-app-registration-client-id
 ```
@@ -57,7 +61,7 @@ npm run dev
 ### 4. FBR flow (after sign-in)
 
 1. **Save Draft** → MongoDB  
-2. **Validate with FBR** → sandbox validate  
+2. **Validate with FBR** → FBR validate (sandbox or production, from `FBR_ENVIRONMENT`)  
 3. **Submit to FBR** → only when status is `validated`  
 4. Submitted invoices appear on **Dashboard**
 
