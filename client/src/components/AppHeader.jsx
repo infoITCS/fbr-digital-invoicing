@@ -1,7 +1,5 @@
-import { useEffect, useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { useMsal, useAccount } from '@azure/msal-react';
-import { checkHealth } from '../api';
 
 const linkClass = ({ isActive }) =>
   `rounded px-3 py-1.5 text-xs font-semibold transition ${
@@ -13,23 +11,6 @@ const linkClass = ({ isActive }) =>
 export default function AppHeader({ statusLabel }) {
   const { instance } = useMsal();
   const account = useAccount(instance.getActiveAccount() || undefined);
-  const [environment, setEnvironment] = useState('');
-
-  useEffect(() => {
-    let cancelled = false;
-    checkHealth()
-      .then((data) => {
-        if (!cancelled && data?.environment) {
-          setEnvironment(String(data.environment).toUpperCase());
-        }
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const isProduction = environment === 'PRODUCTION';
 
   const handleSignOut = () => {
     instance.logoutRedirect({
@@ -48,7 +29,7 @@ export default function AppHeader({ statusLabel }) {
             FBR Digital Invoicing
           </h1>
           <p className="text-xs text-slate-500">
-            IT Consulting and Services
+            Create and send tax invoices to FBR
           </p>
         </div>
 
@@ -62,22 +43,15 @@ export default function AppHeader({ statusLabel }) {
             </NavLink>
           </nav>
           <div className="flex flex-col items-end gap-1">
-            {environment ? (
-              <div
-                className={`rounded border px-3 py-1.5 text-xs font-bold tracking-wide ${
-                  isProduction
-                    ? 'border-teal-300 bg-teal-50 text-teal-950'
-                    : 'border-amber-300 bg-amber-50 text-amber-950'
-                }`}
-              >
-                {environment}
-              </div>
-            ) : null}
             {statusLabel ? (
-              <p className="text-[11px] text-slate-500">
-                Status: <span className="font-mono">{statusLabel}</span>
+              <p className="rounded border border-teal-200 bg-teal-50 px-3 py-1.5 text-xs font-semibold text-teal-950">
+                {statusLabel}
               </p>
-            ) : null}
+            ) : (
+              <div className="rounded border border-teal-300 bg-teal-50 px-3 py-1.5 text-xs font-bold tracking-wide text-teal-950">
+                Live FBR
+              </div>
+            )}
             {account ? (
               <div className="flex items-center gap-2 text-[11px] text-slate-600">
                 <span className="max-w-[180px] truncate" title={account.username}>

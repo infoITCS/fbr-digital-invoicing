@@ -27,6 +27,7 @@ import {
   humanizeApiError,
   summarizeFormErrors,
 } from './utils/userMessages';
+import { getStatusLabel } from './utils/statusLabels';
 
 const LOCKED_STATUSES = new Set([
   'submission_pending',
@@ -264,17 +265,68 @@ export default function InvoiceFormPage() {
 
   return (
     <div className="min-h-screen bg-[linear-gradient(180deg,#f0f4f8_0%,#ffffff_28%,#f8fafc_100%)]">
-      <AppHeader statusLabel={status} />
+      <AppHeader statusLabel={getStatusLabel(status)} />
 
       <main className="mx-auto max-w-6xl space-y-5 px-4 py-6">
+        <section className="rounded-lg border border-slate-200 bg-white p-4">
+          <h2 className="text-base font-bold text-slate-900">
+            Create an FBR invoice
+          </h2>
+          <p className="mt-1 text-sm text-slate-600">
+            Fill in the buyer and items, then follow the three steps at the
+            bottom. FBR only receives the invoice when you click Send to FBR.
+          </p>
+          <ol className="mt-3 grid gap-2 text-xs text-slate-600 sm:grid-cols-3">
+            <li
+              className={`rounded border px-3 py-2 ${
+                status === 'draft' || !status
+                  ? 'border-teal-300 bg-teal-50 text-teal-950'
+                  : 'border-slate-200 bg-slate-50'
+              }`}
+            >
+              <span className="font-bold">1. Save draft</span>
+              <span className="mt-0.5 block">Keep your work on this system.</span>
+            </li>
+            <li
+              className={`rounded border px-3 py-2 ${
+                status === 'validated'
+                  ? 'border-teal-300 bg-teal-50 text-teal-950'
+                  : status === 'validation_failed'
+                    ? 'border-red-300 bg-red-50 text-red-900'
+                    : 'border-slate-200 bg-slate-50'
+              }`}
+            >
+              <span className="font-bold">2. Check with FBR</span>
+              <span className="mt-0.5 block">
+                FBR confirms the invoice is acceptable.
+              </span>
+            </li>
+            <li
+              className={`rounded border px-3 py-2 ${
+                status === 'submitted'
+                  ? 'border-teal-300 bg-teal-50 text-teal-950'
+                  : 'border-slate-200 bg-slate-50'
+              }`}
+            >
+              <span className="font-bold">3. Send to FBR</span>
+              <span className="mt-0.5 block">
+                Official submission — only after a successful check.
+              </span>
+            </li>
+          </ol>
+        </section>
+
         <section className="rounded-lg border border-slate-200 bg-white">
           <div className="border-b border-slate-200 bg-slate-50 px-4 py-3">
             <h2 className="text-sm font-bold uppercase tracking-wide text-slate-800">
-              Invoice Details
+              Invoice
             </h2>
+            <p className="text-xs text-slate-500">
+              Date, tax scenario, and your own reference number.
+            </p>
           </div>
           <div className="grid grid-cols-1 gap-3 p-4 md:grid-cols-2">
-            <Field label="Invoice Type" name="invoiceType" required>
+            <Field label="Invoice type" name="invoiceType" required>
               <input
                 id="invoiceType"
                 className={inputClass()}
@@ -284,7 +336,7 @@ export default function InvoiceFormPage() {
               />
             </Field>
             <Field
-              label="Invoice Date"
+              label="Invoice date"
               name="invoiceDate"
               required
               error={errors.invoiceDate}
@@ -299,11 +351,11 @@ export default function InvoiceFormPage() {
               />
             </Field>
             <Field
-              label="Scenario ID"
+              label="Tax scenario"
               name="scenarioId"
               required
               error={errors.scenarioId}
-              hint="FBR scenario — code is sent to FBR; name is for the team"
+              hint="Choose the type of sale. This tells FBR which tax rules apply."
             >
               <select
                 id="scenarioId"
@@ -314,17 +366,23 @@ export default function InvoiceFormPage() {
               >
                 {SCENARIO_OPTIONS.map((s) => (
                   <option key={s.id} value={s.id}>
-                    {s.id} — {s.name}
+                    {s.name} ({s.id})
                   </option>
                 ))}
               </select>
             </Field>
-            <Field label="Invoice Reference Number" name="invoiceRefNo">
+            <Field
+              label="Your invoice number"
+              name="invoiceRefNo"
+              optional
+              hint="Optional internal reference. FBR will issue its own number after you send."
+            >
               <input
                 id="invoiceRefNo"
                 className={inputClass()}
                 value={form.invoiceRefNo}
                 disabled={formLocked}
+                placeholder="e.g. INV-2026-001"
                 onChange={(e) => updateField('invoiceRefNo', e.target.value)}
               />
             </Field>
@@ -334,15 +392,15 @@ export default function InvoiceFormPage() {
         <section className="rounded-lg border border-slate-200 bg-white">
           <div className="border-b border-slate-200 bg-slate-50 px-4 py-3">
             <h2 className="text-sm font-bold uppercase tracking-wide text-slate-800">
-              Seller Details
+              From (seller)
             </h2>
             <p className="text-xs text-slate-500">
-              Pre-filled with ITCS defaults — editable
+              Pre-filled for ITCS. Change only if needed.
             </p>
           </div>
           <div className="grid grid-cols-1 gap-3 p-4 md:grid-cols-2">
             <Field
-              label="Seller NTN/CNIC"
+              label="Seller NTN / CNIC"
               name="sellerNTNCNIC"
               required
               error={errors.sellerNTNCNIC}
@@ -356,7 +414,7 @@ export default function InvoiceFormPage() {
               />
             </Field>
             <Field
-              label="Seller Business Name"
+              label="Business name"
               name="sellerBusinessName"
               required
               error={errors.sellerBusinessName}
@@ -372,7 +430,7 @@ export default function InvoiceFormPage() {
               />
             </Field>
             <Field
-              label="Seller Province"
+              label="Province"
               name="sellerProvince"
               required
               error={errors.sellerProvince}
@@ -392,7 +450,7 @@ export default function InvoiceFormPage() {
               </select>
             </Field>
             <Field
-              label="Seller Address"
+              label="Address"
               name="sellerAddress"
               required
               error={errors.sellerAddress}
@@ -411,15 +469,23 @@ export default function InvoiceFormPage() {
         <section className="rounded-lg border border-slate-200 bg-white">
           <div className="border-b border-slate-200 bg-slate-50 px-4 py-3">
             <h2 className="text-sm font-bold uppercase tracking-wide text-slate-800">
-              Buyer Details
+              Bill to (buyer)
             </h2>
+            <p className="text-xs text-slate-500">
+              Who is being invoiced. Registered buyers need an NTN or CNIC.
+            </p>
           </div>
           <div className="grid grid-cols-1 gap-3 p-4 md:grid-cols-2">
             <Field
-              label="Buyer NTN/CNIC"
+              label="Buyer NTN / CNIC"
               name="buyerNTNCNIC"
               required={form.buyerRegistrationType === 'Registered'}
               error={errors.buyerNTNCNIC}
+              hint={
+                form.buyerRegistrationType === 'Unregistered'
+                  ? 'Not required for unregistered buyers.'
+                  : undefined
+              }
             >
               <input
                 id="buyerNTNCNIC"
@@ -430,7 +496,7 @@ export default function InvoiceFormPage() {
               />
             </Field>
             <Field
-              label="Buyer Business Name"
+              label="Business name"
               name="buyerBusinessName"
               required
               error={errors.buyerBusinessName}
@@ -446,7 +512,7 @@ export default function InvoiceFormPage() {
               />
             </Field>
             <Field
-              label="Buyer Province"
+              label="Province"
               name="buyerProvince"
               required
               error={errors.buyerProvince}
@@ -466,7 +532,7 @@ export default function InvoiceFormPage() {
               </select>
             </Field>
             <Field
-              label="Buyer Address"
+              label="Address"
               name="buyerAddress"
               required
               error={errors.buyerAddress}
@@ -480,7 +546,8 @@ export default function InvoiceFormPage() {
               />
             </Field>
             <Field
-              label="Buyer Registration Type"
+              label="Buyer STRN status"
+              hint="Registered = has a sales tax number. Unregistered = consumer / no STRN."
               name="buyerRegistrationType"
               required
               error={errors.buyerRegistrationType}
@@ -527,18 +594,22 @@ export default function InvoiceFormPage() {
         />
 
         <section className="rounded-lg border border-slate-200 bg-white p-4">
+          <h3 className="mb-3 text-sm font-bold text-slate-800">Invoice totals</h3>
           <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-            <TotalChip label="Excl. ST" value={totals.valueSalesExcludingST} />
-            <TotalChip label="Sales Tax" value={totals.salesTaxApplicable} />
-            <TotalChip label="Further Tax" value={totals.furtherTax} />
-            <TotalChip label="Extra Tax" value={totals.extraTax} />
+            <TotalChip
+              label="Amount before tax"
+              value={totals.valueSalesExcludingST}
+            />
+            <TotalChip label="Sales tax" value={totals.salesTaxApplicable} />
+            <TotalChip label="Further tax" value={totals.furtherTax} />
+            <TotalChip label="Extra tax" value={totals.extraTax} />
             <TotalChip label="Discount" value={totals.discount} />
-            <TotalChip label="Total" value={totals.totalValues} emphasize />
+            <TotalChip label="Invoice total" value={totals.totalValues} emphasize />
           </div>
 
           <p className="mb-3 text-xs text-slate-500">
-            Steps: 1) Save Draft → 2) Validate with FBR → 3) Submit to FBR.
-            Submit stays disabled until FBR accepts the validation step.
+            Send to FBR stays locked until FBR accepts the check in step 2.
+            Current status: {getStatusLabel(status)}.
           </p>
 
           <div className="flex flex-wrap gap-2">
@@ -548,7 +619,7 @@ export default function InvoiceFormPage() {
               disabled={!canSave}
               className="rounded border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {busy === 'save' ? 'Saving…' : 'Save Draft'}
+              {busy === 'save' ? 'Saving…' : '1. Save draft'}
             </button>
             <button
               type="button"
@@ -556,7 +627,7 @@ export default function InvoiceFormPage() {
               disabled={!canValidate}
               className="rounded border border-teal-700 bg-teal-50 px-4 py-2 text-sm font-semibold text-teal-900 hover:bg-teal-100 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {busy === 'validate' ? 'Validating…' : 'Validate with FBR'}
+              {busy === 'validate' ? 'Checking with FBR…' : '2. Check with FBR'}
             </button>
             <button
               type="button"
@@ -564,7 +635,7 @@ export default function InvoiceFormPage() {
               disabled={!canSubmit}
               className="rounded bg-teal-800 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-900 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {busy === 'submit' ? 'Submitting…' : 'Submit to FBR'}
+              {busy === 'submit' ? 'Sending…' : '3. Send to FBR'}
             </button>
           </div>
           {errors.items ? (
@@ -591,7 +662,7 @@ export default function InvoiceFormPage() {
 
         {lastSubmit ? (
           <p className="rounded border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
-            Success — last invoice was submitted to FBR
+            Last invoice was sent to FBR
             {lastSubmit.fbrInvoiceNumber
               ? ` (FBR number ${lastSubmit.fbrInvoiceNumber})`
               : ''}
@@ -607,7 +678,7 @@ export default function InvoiceFormPage() {
       </main>
 
       <footer className="border-t border-slate-200 py-4 text-center text-xs text-slate-500">
-        ITCS Digital Invoicing · SANDBOX · Bearer token never sent to the browser
+        ITCS Digital Invoicing — invoices are sent to FBR only after you check and send.
       </footer>
     </div>
   );

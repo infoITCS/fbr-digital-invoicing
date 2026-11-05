@@ -69,7 +69,7 @@ export const SALE_TYPE_OPTIONS = [
   'Non-Adjustable Supplies',
 ];
 
-/** ITCS-approved sandbox scenarios only (code + display name for the team) */
+/** ITCS-approved FBR scenarios (code + display name for the team) */
 export const SCENARIO_OPTIONS = [
   {
     id: 'SN001',
@@ -150,6 +150,7 @@ export function createEmptyItem() {
     rate: '18%',
     uoM: 'Numbers, pieces, units',
     quantity: 1,
+    unitPrice: '',
     totalValues: 0,
     valueSalesExcludingST: 0,
     fixedNotifiedValueOrRetailPrice: 0,

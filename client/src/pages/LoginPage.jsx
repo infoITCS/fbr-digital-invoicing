@@ -15,7 +15,7 @@ export default function LoginPage() {
   useEffect(() => {
     if (!config?.enabled) {
       setError(
-        'Microsoft sign-in is not configured. Set AZURE_AD_TENANT_ID and AZURE_AD_CLIENT_ID on the server.'
+        'Microsoft sign-in is not set up yet. Please ask IT to configure it.'
       );
     }
   }, [config]);
@@ -45,12 +45,12 @@ export default function LoginPage() {
           FBR Digital Invoicing
         </h1>
         <p className="mt-2 text-sm text-slate-600">
-          Sign in with your organization Microsoft account. Only users from the
-          ITCS Microsoft tenant can access this application.
+          Sign in with your ITCS Microsoft account to create invoices and send
+          them to FBR.
         </p>
 
-        <div className="mt-4 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-950">
-          SANDBOX ENVIRONMENT
+        <div className="mt-4 rounded border border-teal-200 bg-teal-50 px-3 py-2 text-xs font-semibold text-teal-950">
+          Live FBR invoicing
         </div>
 
         {error ? (
@@ -70,7 +70,7 @@ export default function LoginPage() {
         </button>
 
         <p className="mt-4 text-center text-[11px] text-slate-500">
-          Accounts outside your company tenant are rejected by the server.
+          Only ITCS staff accounts can sign in.
         </p>
       </div>
     </div>

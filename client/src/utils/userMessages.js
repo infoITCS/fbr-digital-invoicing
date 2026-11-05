@@ -40,41 +40,41 @@ export function summarizeFormErrors(errors = {}) {
 const CODE_MESSAGES = {
   FBR_TIMEOUT: {
     validate:
-      'FBR did not reply in time. Your invoice was not confirmed. Wait a moment, then click “Validate with FBR” again.',
+      'FBR did not reply in time. Your invoice was not confirmed. Wait a moment, then click “Check with FBR” again.',
     submit:
-      'FBR did not reply in time after we sent the invoice. It may or may not have been received. Do not click Submit again — check the Dashboard or ask your admin to confirm with FBR first.',
+      'FBR did not reply in time after we sent the invoice. It may or may not have been received. Do not click Send to FBR again — check the Dashboard or ask your admin to confirm with FBR first.',
     save: 'The request timed out. Check your internet connection and try saving again.',
   },
   FBR_NO_RESPONSE: {
     validate:
-      'Could not reach FBR. Check your internet connection, then click “Validate with FBR” again.',
+      'Could not reach FBR. Check your internet connection, then click “Check with FBR” again.',
     submit:
-      'We lost contact with FBR while submitting. The invoice may or may not have been received. Do not submit again until this is checked with FBR (see Dashboard).',
+      'We lost contact with FBR while sending. The invoice may or may not have been received. Do not send again until this is checked with FBR (see Dashboard).',
     save: 'Could not reach the server. Check your internet connection and try again.',
   },
   FBR_AUTH_ERROR: {
     validate:
-      'FBR rejected our login token (unauthorized). Ask your admin to check the FBR API token on the server.',
+      'FBR did not accept our connection. Ask IT to check the FBR settings on the server.',
     submit:
-      'FBR rejected our login token (unauthorized). Ask your admin to check the FBR API token on the server. This invoice was not submitted.',
+      'FBR did not accept our connection. Ask IT to check the FBR settings on the server. This invoice was not sent.',
     save: 'You are not authorized. Sign out and sign in again with Microsoft.',
   },
   FBR_HTTP_ERROR: {
     validate:
-      'FBR returned an error while checking this invoice. See the FBR messages below, fix the form if needed, then validate again.',
+      'FBR returned an error while checking this invoice. See the FBR messages below, fix the form if needed, then check again.',
     submit:
-      'FBR returned an error and did not accept this invoice. See the FBR messages below. Fix the issue, validate again, then submit.',
+      'FBR returned an error and did not accept this invoice. See the FBR messages below. Fix the issue, check with FBR again, then send.',
     save: 'The server returned an error. Please try again or contact your admin.',
   },
   FBR_SUBMISSION_REJECTED: {
     submit:
-      'FBR rejected this invoice. It was not submitted. Read the FBR messages below, correct the details, validate again, then submit.',
+      'FBR rejected this invoice. It was not sent. Read the FBR messages below, correct the details, check again, then send.',
   },
   FBR_UNEXPECTED_RESPONSE: {
     validate:
-      'FBR sent an unexpected reply, so we could not confirm the invoice. Try Validate again. If it keeps happening, contact your admin.',
+      'FBR sent an unexpected reply, so we could not confirm the invoice. Try Check with FBR again. If it keeps happening, contact IT.',
     submit:
-      'FBR sent an unexpected reply, so we could not confirm submission. Do not assume it was submitted — check with your admin.',
+      'FBR sent an unexpected reply, so we could not confirm it was sent. Do not assume it was received — check with IT.',
   },
 };
 
@@ -88,28 +88,28 @@ function humanizeByRawMessage(raw, context, payload) {
   const m = String(raw || '').toLowerCase();
 
   if (/already submitted|duplicate submission/.test(m)) {
-    return 'This invoice was already sent to FBR successfully. You do not need to submit it again. Open the Dashboard to view it, or start a new invoice on this form.';
+    return 'This invoice was already sent to FBR successfully. You do not need to send it again. Open the Dashboard to view it, or start a new invoice on this form.';
   }
   if (/submission_unknown|reconcile/.test(m)) {
-    return 'The last submit attempt did not get a clear answer from FBR. Do not submit again. Check the Dashboard and confirm with FBR before any retry.';
+    return 'The last send attempt did not get a clear answer from FBR. Do not send again. Check the Dashboard and confirm with FBR before any retry.';
   }
   if (/submission already in progress/.test(m)) {
-    return 'A submit is already in progress for this invoice. Please wait — do not click Submit again.';
+    return 'This invoice is already being sent. Please wait — do not click Send to FBR again.';
   }
   if (/must pass fbr validation|status: validated|not validated/.test(m)) {
-    return 'This invoice must pass “Validate with FBR” first (status becomes validated). Click Validate, wait for success, then click Submit.';
+    return 'This invoice must pass “Check with FBR” first. Click Check with FBR, wait for success, then click Send to FBR.';
   }
   if (/fields were updated|reset to draft/.test(m)) {
-    return 'The invoice details changed, so it must be validated again. Click “Validate with FBR”, then Submit.';
+    return 'The invoice details changed, so it must be checked again. Click “Check with FBR”, then Send to FBR.';
   }
   if (/cannot validate.*submitted|cannot modify invoice in status/.test(m)) {
-    return 'This invoice can no longer be changed or re-validated because it was already submitted (or is waiting on FBR). Start a new invoice instead.';
+    return 'This invoice can no longer be changed because it was already sent (or is waiting on FBR). Start a new invoice instead.';
   }
   if (/cannot validate.*submission_pending|cannot validate.*submission_unknown/.test(m)) {
-    return 'This invoice is locked because a previous submit is unfinished or unclear. Do not validate or submit again until it is resolved.';
+    return 'This invoice is locked because a previous send is unfinished or unclear. Do not check or send again until it is resolved.';
   }
   if (/invoice not found/.test(m)) {
-    return 'We could not find this invoice. Click “Save Draft” first, then Validate, then Submit.';
+    return 'We could not find this invoice. Click “Save draft” first, then Check with FBR, then Send to FBR.';
   }
   if (/invalid invoice id/.test(m)) {
     return 'Something went wrong with this invoice record. Save a new draft and try again.';
@@ -188,29 +188,29 @@ export function humanizeApiError(payload, context = 'general') {
 
 export const MSG = {
   formIncompleteSave:
-    'The form is incomplete. Fix the fields marked in red, then click “Save Draft” again.',
+    'The form is incomplete. Fix the fields marked in red, then click “Save draft” again.',
   formIncompleteValidate:
-    'The form is incomplete. Fix the fields marked in red, then click “Validate with FBR” again.',
-  draftSaved: 'Draft saved. Next step: click “Validate with FBR”.',
+    'The form is incomplete. Fix the fields marked in red, then click “Check with FBR” again.',
+  draftSaved: 'Draft saved. Next step: click “Check with FBR”.',
   validateOk:
-    'FBR accepted this invoice (validation passed). Next step: click “Submit to FBR”.',
+    'FBR accepted this invoice. Next step: click “Send to FBR”.',
   validateFail:
-    'FBR did not accept this invoice. Read the FBR messages below, correct the form, then click “Validate with FBR” again.',
+    'FBR did not accept this invoice. Read the messages below, correct the form, then click “Check with FBR” again.',
   alreadySubmitted:
     'This invoice was already sent to FBR. Open the Dashboard to view it, or fill the form for a new invoice.',
   submissionUnknown:
-    'The last submit did not get a clear answer from FBR. Do not submit again. Check the Dashboard and confirm with FBR before any retry.',
+    'The last send did not get a clear answer from FBR. Do not send again. Check the Dashboard and confirm with FBR before any retry.',
   notValidated:
-    'Please validate first. Click “Validate with FBR” and wait until it succeeds, then click “Submit to FBR”.',
+    'Please check with FBR first. Click “Check with FBR” and wait until it succeeds, then click “Send to FBR”.',
   missingId:
-    'Please save and validate first. Click “Save Draft”, then “Validate with FBR”, then “Submit to FBR”.',
+    'Please save and check first. Click “Save draft”, then “Check with FBR”, then “Send to FBR”.',
   submitOk: (fbrNo) =>
     fbrNo
-      ? `Invoice submitted successfully to FBR. FBR invoice number: ${fbrNo}. The form is cleared for your next invoice.`
-      : 'Invoice submitted successfully to FBR. The form is cleared for your next invoice.',
+      ? `Invoice sent to FBR. FBR invoice number: ${fbrNo}. The form is ready for your next invoice.`
+      : 'Invoice sent to FBR. The form is ready for your next invoice.',
   submitUnconfirmed:
-    'FBR did not clearly accept this invoice, so it was not marked as submitted. See the messages below. Fix any issues, validate again, then submit.',
-  uncertainTitle: 'Unclear result — do not submit again',
+    'FBR did not clearly accept this invoice, so it was not marked as sent. See the messages below. Fix any issues, check again, then send.',
+  uncertainTitle: 'Unclear result — do not send again',
   uncertainBody:
-    'We sent the invoice, but FBR did not give a clear reply (timeout or connection problem). It may or may not have been received. Do not click Submit again. Check the Dashboard, or ask your admin to confirm in FBR, before any retry.',
+    'We sent the invoice, but FBR did not give a clear reply (timeout or connection problem). It may or may not have been received. Do not click Send to FBR again. Check the Dashboard, or ask your admin to confirm in FBR, before any retry.',
 };

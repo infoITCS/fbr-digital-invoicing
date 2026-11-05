@@ -1,38 +1,4 @@
-function statusBadgeClass(status) {
-  switch (status) {
-    case 'submitted':
-    case 'validated':
-      return 'bg-emerald-100 text-emerald-800 border-emerald-300';
-    case 'validation_failed':
-      return 'bg-red-100 text-red-800 border-red-300';
-    case 'submission_pending':
-      return 'bg-amber-100 text-amber-900 border-amber-300';
-    case 'submission_unknown':
-      return 'bg-orange-100 text-orange-900 border-orange-300';
-    case 'draft':
-    default:
-      return 'bg-slate-100 text-slate-700 border-slate-300';
-  }
-}
-
-function statusLabel(status) {
-  switch (status) {
-    case 'draft':
-      return 'Draft (not sent yet)';
-    case 'validated':
-      return 'Validated — ready to submit';
-    case 'validation_failed':
-      return 'FBR rejected — fix and try again';
-    case 'submission_pending':
-      return 'Submitting… please wait';
-    case 'submitted':
-      return 'Submitted to FBR';
-    case 'submission_unknown':
-      return 'Unclear — do not resubmit';
-    default:
-      return status || '';
-  }
-}
+import { getStatusBadgeClass, getStatusLabel } from '../utils/statusLabels';
 
 function extractFbrMessages(fbrResponse) {
   if (!fbrResponse) return [];
@@ -100,29 +66,17 @@ export default function ResponsePanel({
     <section className="rounded-lg border border-slate-200 bg-white">
       <div className="border-b border-slate-200 bg-slate-50 px-4 py-3">
         <h2 className="text-sm font-bold uppercase tracking-wide text-slate-800">
-          Result
+          FBR result
         </h2>
       </div>
 
       <div className="space-y-3 p-4 text-sm">
         <div className="flex flex-wrap items-center gap-3">
-          {invoiceId ? (
-            <p className="text-slate-600">
-              Local ID:{' '}
-              <span className="font-mono text-xs text-slate-900">{invoiceId}</span>
-            </p>
-          ) : null}
           {status ? (
             <span
-              className={`inline-flex rounded border px-2 py-0.5 text-xs font-semibold ${statusBadgeClass(status)}`}
-              title={status}
+              className={`inline-flex rounded border px-2 py-0.5 text-xs font-semibold ${getStatusBadgeClass(status)}`}
             >
-              {statusLabel(status)}
-            </span>
-          ) : null}
-          {fbrHttpStatus != null ? (
-            <span className="text-xs text-slate-500">
-              FBR HTTP {fbrHttpStatus}
+              {getStatusLabel(status)}
             </span>
           ) : null}
         </div>
@@ -143,12 +97,12 @@ export default function ResponsePanel({
 
         {uncertain ? (
           <div className="space-y-2 rounded border border-orange-300 bg-orange-50 px-3 py-2 text-orange-900">
-            <p className="font-semibold">Unclear result — do not submit again</p>
+            <p className="font-semibold">Unclear result — do not send again</p>
             <p>
               We sent the invoice, but FBR did not give a clear reply (timeout
               or connection problem). It may or may not have been received. Do
-              not click Submit again. Check the Dashboard, or ask your admin to
-              confirm in FBR, before any retry.
+              not click Send to FBR again. Check the Dashboard, or ask your
+              admin to confirm in FBR, before any retry.
             </p>
           </div>
         ) : null}
@@ -182,7 +136,7 @@ export default function ResponsePanel({
 
         {fbrInvoiceNumber ? (
           <p className="text-slate-800">
-            FBR Invoice Number:{' '}
+            FBR invoice number:{' '}
             <span className="font-mono font-semibold">{fbrInvoiceNumber}</span>
           </p>
         ) : null}
@@ -190,7 +144,7 @@ export default function ResponsePanel({
         {qrCodeData != null ? (
           <div>
             <p className="mb-1 text-xs font-semibold uppercase text-slate-500">
-              QR Code Data (as returned)
+              QR code from FBR
             </p>
             <pre className="overflow-x-auto rounded border border-slate-200 bg-slate-50 p-2 text-xs text-slate-800">
               {typeof qrCodeData === 'string'
@@ -203,7 +157,7 @@ export default function ResponsePanel({
         {fbrResponse ? (
           <details className="rounded border border-slate-200" open={status === 'validation_failed' || uncertain}>
             <summary className="cursor-pointer bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-700">
-              Full FBR response (raw, preserved)
+              Technical FBR reply (for IT / audit)
             </summary>
             <pre className="max-h-80 overflow-auto p-3 text-xs text-slate-800">
               {JSON.stringify(fbrResponse, null, 2)}

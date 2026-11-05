@@ -8,6 +8,8 @@ const invoiceItemSchema = new mongoose.Schema(
     rate: { type: String, default: '' },
     uoM: { type: String, default: '' },
     quantity: { type: Number, default: 0 },
+    /** Local helper — not an FBR DI field; used to compute valueSalesExcludingST */
+    unitPrice: { type: Number, default: 0 },
     totalValues: { type: Number, default: 0 },
     valueSalesExcludingST: { type: Number, default: 0 },
     fixedNotifiedValueOrRetailPrice: { type: Number, default: 0 },

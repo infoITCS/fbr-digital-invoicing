@@ -4,6 +4,7 @@ import AppHeader from '../components/AppHeader';
 import { getInvoice } from '../api';
 import { getScenarioLabel } from '../constants';
 import { formatMoney } from '../utils/validation';
+import { getStatusLabel } from '../utils/statusLabels';
 
 function formatDateTime(value) {
   if (!value) return '—';
@@ -64,23 +65,24 @@ function JsonPanel({ title, value, defaultOpen }) {
 }
 
 const ITEM_FIELDS = [
-  ['HS Code', 'hsCode'],
-  ['Product Description', 'productDescription'],
-  ['Rate', 'rate'],
-  ['Unit of Measurement (UOM)', 'uoM'],
+  ['Description', 'productDescription'],
+  ['HS code', 'hsCode'],
   ['Quantity', 'quantity'],
-  ['Total Values', 'totalValues'],
-  ['Sales Value Excluding Sales Tax', 'valueSalesExcludingST'],
-  ['Fixed Notified Value or Retail Price', 'fixedNotifiedValueOrRetailPrice'],
-  ['Sales Tax Applicable', 'salesTaxApplicable'],
-  ['Sales Tax Withheld at Source', 'salesTaxWithheldAtSource'],
-  ['Extra Tax', 'extraTax'],
-  ['Further Tax', 'furtherTax'],
-  ['SRO Schedule Number', 'sroScheduleNo'],
-  ['FED Payable', 'fedPayable'],
+  ['Unit', 'uoM'],
+  ['Price per unit', 'unitPrice'],
+  ['Amount before tax', 'valueSalesExcludingST'],
+  ['Sales tax rate', 'rate'],
+  ['Sales tax', 'salesTaxApplicable'],
+  ['Line total', 'totalValues'],
+  ['Sale category', 'saleType'],
   ['Discount', 'discount'],
-  ['Sale Type', 'saleType'],
-  ['SRO Item Serial Number', 'sroItemSerialNo'],
+  ['Further tax', 'furtherTax'],
+  ['Extra tax', 'extraTax'],
+  ['FED payable', 'fedPayable'],
+  ['Tax withheld at source', 'salesTaxWithheldAtSource'],
+  ['Notified / retail price', 'fixedNotifiedValueOrRetailPrice'],
+  ['SRO / schedule', 'sroScheduleNo'],
+  ['SRO item serial', 'sroItemSerialNo'],
 ];
 
 export default function InvoiceDetailPage() {
@@ -111,16 +113,15 @@ export default function InvoiceDetailPage() {
   return (
     <div className="min-h-screen bg-[linear-gradient(180deg,#f0f4f8_0%,#ffffff_28%,#f8fafc_100%)]">
       <div className="print:hidden">
-        <AppHeader statusLabel={invoice?.status} />
+        <AppHeader statusLabel={getStatusLabel(invoice?.status)} />
       </div>
 
       <main className="mx-auto max-w-6xl space-y-5 px-4 py-6">
         <div className="flex flex-wrap items-center justify-between gap-3 print:hidden">
           <div>
             <h2 className="text-lg font-bold text-slate-900">Invoice details</h2>
-            <p className="text-xs text-slate-500">
-              Complete saved invoice and FBR exchange data (ITCS view — not the
-              official IRIS portal).
+            <p className="text-sm text-slate-500">
+              Saved invoice record. This is not the official FBR / IRIS portal.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -160,58 +161,50 @@ export default function InvoiceDetailPage() {
 
         {invoice ? (
           <>
-            <Section title="Invoice header">
+            <Section title="Invoice">
               <FieldGrid
                 rows={[
-                  ['Invoice Type', invoice.invoiceType],
-                  ['Invoice Date', invoice.invoiceDate],
-                  ['Scenario', getScenarioLabel(invoice.scenarioId)],
+                  ['Invoice type', invoice.invoiceType],
+                  ['Invoice date', invoice.invoiceDate],
+                  ['Tax scenario', getScenarioLabel(invoice.scenarioId)],
+                  ['Your invoice number', invoice.invoiceRefNo || '—'],
                   [
-                    'Invoice Reference Number (invoiceRefNo)',
-                    invoice.invoiceRefNo || '—',
-                  ],
-                  ['Local MongoDB Invoice ID', invoice.localInvoiceId],
-                  [
-                    'FBR Invoice Number',
+                    'FBR invoice number',
                     invoice.fbrInvoiceNumberDisplay ||
                       invoice.fbrInvoiceNumber ||
-                      'Not returned by FBR',
+                      'Not yet issued',
                   ],
-                  [
-                    'Environment',
-                    String(invoice.environment || 'sandbox').toUpperCase(),
-                  ],
-                  ['Submission Status', invoice.status],
-                  ['Validated at', formatDateTime(invoice.validatedAt)],
-                  ['Submitted at', formatDateTime(invoice.submittedAt)],
+                  ['Status', getStatusLabel(invoice.status)],
+                  ['Checked with FBR at', formatDateTime(invoice.validatedAt)],
+                  ['Sent to FBR at', formatDateTime(invoice.submittedAt)],
                 ]}
               />
             </Section>
 
-            <Section title="Seller details">
+            <Section title="From (seller)">
               <FieldGrid
                 rows={[
-                  ['Seller NTN/CNIC', invoice.sellerNTNCNIC],
-                  ['Seller Business Name', invoice.sellerBusinessName],
-                  ['Seller Province', invoice.sellerProvince],
-                  ['Seller Address', invoice.sellerAddress],
+                  ['NTN / CNIC', invoice.sellerNTNCNIC],
+                  ['Business name', invoice.sellerBusinessName],
+                  ['Province', invoice.sellerProvince],
+                  ['Address', invoice.sellerAddress],
                 ]}
               />
             </Section>
 
-            <Section title="Buyer details">
+            <Section title="Bill to (buyer)">
               <FieldGrid
                 rows={[
-                  ['Buyer NTN/CNIC', invoice.buyerNTNCNIC],
-                  ['Buyer Business Name', invoice.buyerBusinessName],
-                  ['Buyer Province', invoice.buyerProvince],
-                  ['Buyer Address', invoice.buyerAddress],
-                  ['Buyer Registration Type', invoice.buyerRegistrationType],
+                  ['NTN / CNIC', invoice.buyerNTNCNIC],
+                  ['Business name', invoice.buyerBusinessName],
+                  ['Province', invoice.buyerProvince],
+                  ['Address', invoice.buyerAddress],
+                  ['STRN status', invoice.buyerRegistrationType],
                 ]}
               />
             </Section>
 
-            <Section title="Invoice items">
+            <Section title="Items">
               {(invoice.items || []).length === 0 ? (
                 <p className="text-sm text-slate-500">No items stored.</p>
               ) : (
@@ -238,19 +231,18 @@ export default function InvoiceDetailPage() {
               )}
             </Section>
 
-            <Section title="Totals (saved)">
+            <Section title="Totals">
               <p className="mb-3 text-xs text-slate-500">
-                Values from the stored invoice snapshot — not recalculated on
-                view.
+                Amounts saved with this invoice.
               </p>
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
                 {[
-                  ['Excl. ST', totals.valueSalesExcludingST],
+                  ['Amount before tax', totals.valueSalesExcludingST],
                   ['Sales tax', totals.salesTaxApplicable],
                   ['Further tax', totals.furtherTax],
                   ['Extra tax', totals.extraTax],
                   ['Discount', totals.discount],
-                  ['Total value', totals.totalValues],
+                  ['Invoice total', totals.totalValues],
                 ].map(([label, value]) => (
                   <div
                     key={label}
@@ -267,32 +259,32 @@ export default function InvoiceDetailPage() {
               </div>
             </Section>
 
-            <Section title="FBR request / response">
+            <Section title="FBR check and send (technical)">
               <div className="space-y-3">
                 <p className="text-xs text-slate-500">
-                  Validation HTTP: {invoice.validationHttpStatus ?? '—'} ·
-                  Submission HTTP: {invoice.submissionHttpStatus ?? '—'}
+                  For IT or audit. You can ignore this unless something went
+                  wrong.
                 </p>
                 <JsonPanel
-                  title="Outgoing validation payload"
+                  title="What we sent for the FBR check"
                   value={invoice.validationRequestPayload}
                 />
                 <JsonPanel
-                  title="Validation response (FBR)"
+                  title="FBR check reply"
                   value={invoice.validationResponse}
                   defaultOpen={!invoice.submissionResponse}
                 />
                 <JsonPanel
-                  title="Outgoing submission payload"
+                  title="What we sent when submitting"
                   value={invoice.submissionRequestPayload}
                 />
                 <JsonPanel
-                  title="Submission response (FBR)"
+                  title="FBR send reply"
                   value={invoice.submissionResponse}
                   defaultOpen
                 />
                 {invoice.qrCodeData != null ? (
-                  <JsonPanel title="QR code data" value={invoice.qrCodeData} />
+                  <JsonPanel title="QR code from FBR" value={invoice.qrCodeData} />
                 ) : null}
                 {invoice.lastError ? (
                   <JsonPanel title="Last error" value={invoice.lastError} />

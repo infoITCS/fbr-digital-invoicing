@@ -58,11 +58,20 @@ export function validateForm(form) {
         e.quantity = 'Enter a valid quantity (0 or more).';
       }
       if (
+        item.unitPrice === '' ||
+        item.unitPrice == null ||
+        Number.isNaN(Number(item.unitPrice)) ||
+        Number(item.unitPrice) < 0
+      ) {
+        e.unitPrice = 'Enter the price of one unit (0 or more).';
+      }
+      if (
         item.valueSalesExcludingST === '' ||
         item.valueSalesExcludingST == null ||
         Number.isNaN(Number(item.valueSalesExcludingST))
       ) {
-        e.valueSalesExcludingST = 'Enter the sale value (before sales tax).';
+        e.valueSalesExcludingST =
+          'Sales value is missing. Enter quantity and unit price.';
       }
       if (!item.saleType?.trim()) e.saleType = 'Select the sale type.';
       return Object.keys(e).length ? { index, ...e } : null;
@@ -86,11 +95,27 @@ export function parseRatePercent(rate) {
   return Number.isFinite(n) ? n : 0;
 }
 
+export function roundMoney(n) {
+  return Math.round((Number(n) || 0) * 100) / 100;
+}
+
+/** Sales value excluding tax = quantity × unit price */
+export function calcSalesValueExcludingST(quantity, unitPrice) {
+  return roundMoney((Number(quantity) || 0) * (Number(unitPrice) || 0));
+}
+
+/** Keep unit price in sync if the excluding-ST value is overridden */
+export function deriveUnitPrice(quantity, valueSalesExcludingST) {
+  const qty = Number(quantity);
+  if (!qty) return 0;
+  return roundMoney((Number(valueSalesExcludingST) || 0) / qty);
+}
+
 /** Recalculate sales tax from excluding-ST value and rate when user edits those fields */
 export function calcSalesTax(valueExcludingST, rate) {
   const base = Number(valueExcludingST) || 0;
   const pct = parseRatePercent(rate);
-  return Math.round(base * (pct / 100) * 100) / 100;
+  return roundMoney(base * (pct / 100));
 }
 
 export function calcItemTotal(item) {
@@ -101,7 +126,7 @@ export function calcItemTotal(item) {
     item.extraTax === '' || item.extraTax == null ? 0 : Number(item.extraTax) || 0;
   const fed = Number(item.fedPayable) || 0;
   const discount = Number(item.discount) || 0;
-  return Math.round((base + st + further + extra + fed - discount) * 100) / 100;
+  return roundMoney(base + st + further + extra + fed - discount);
 }
 
 export function calcInvoiceTotals(items = []) {

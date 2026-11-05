@@ -32,6 +32,7 @@ describe('invoicePayload', () => {
           rate: '1%',
           uoM: 'Numbers, pieces, units',
           quantity: 1,
+          unitPrice: 1000,
           totalValues: 0,
           valueSalesExcludingST: 1000,
           fixedNotifiedValueOrRetailPrice: 0,
@@ -53,6 +54,7 @@ describe('invoicePayload', () => {
     assert.equal(payload.items[0].extraTax, '');
     assert.equal(payload.items[0].valueSalesExcludingST, 1000);
     assert.equal(payload.items[0].saleType, 'Goods at Reduced Rate');
+    assert.equal(payload.items[0].unitPrice, undefined);
   });
 
   it('does not treat HTTP-shaped body alone — requires Valid + statusCode 00', () => {

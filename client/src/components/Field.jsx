@@ -2,6 +2,7 @@ export default function Field({
   label,
   name,
   required,
+  optional,
   error,
   children,
   hint,
@@ -12,9 +13,12 @@ export default function Field({
       <label htmlFor={name} className="text-xs font-semibold text-slate-700">
         {label}
         {required ? <span className="ml-0.5 text-red-600">*</span> : null}
+        {optional ? (
+          <span className="ml-1 font-normal text-slate-400">(optional)</span>
+        ) : null}
       </label>
       {children}
-      {hint ? <p className="text-[11px] text-slate-500">{hint}</p> : null}
+      {hint ? <p className="text-[11px] leading-snug text-slate-500">{hint}</p> : null}
       {error ? <p className="text-[11px] font-medium text-red-600">{error}</p> : null}
     </div>
   );

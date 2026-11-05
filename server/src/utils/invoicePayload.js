@@ -65,6 +65,7 @@ function normalizeItem(raw = {}) {
     rate: String(raw.rate ?? '').trim(),
     uoM: String(raw.uoM ?? '').trim(),
     quantity: toNumber(raw.quantity, 0),
+    unitPrice: toNumber(raw.unitPrice, 0),
     totalValues: toNumber(raw.totalValues, 0),
     valueSalesExcludingST: toNumber(raw.valueSalesExcludingST, 0),
     fixedNotifiedValueOrRetailPrice: toNumber(
@@ -182,7 +183,7 @@ function validateInvoiceData(data) {
       message: 'Must be YYYY-MM-DD',
     });
   }
-  if (!data.scenarioId) errors.push({ field: 'scenarioId', message: 'Required for sandbox' });
+  if (!data.scenarioId) errors.push({ field: 'scenarioId', message: 'Required for FBR' });
   if (!data.sellerNTNCNIC)
     errors.push({ field: 'sellerNTNCNIC', message: 'Required' });
   if (!data.sellerBusinessName)

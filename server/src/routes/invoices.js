@@ -423,7 +423,7 @@ router.post('/:id/validate', async (req, res, next) => {
       const success = interpretation.outcome === 'valid';
       return res.status(success ? 200 : 422).json({
         message: success
-          ? 'FBR accepted this invoice (sandbox check passed). Next step: Submit to FBR.'
+          ? 'FBR accepted this invoice (validation passed). Next step: Submit to FBR.'
           : 'FBR did not accept this invoice. Read the FBR messages, fix the form, then validate again.',
         invoice: toPublicInvoiceDetail(invoice),
         fbrHttpStatus: result.httpStatus,
